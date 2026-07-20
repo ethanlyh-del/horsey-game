@@ -111,12 +111,13 @@
     <button data-s="catch">🤠 抓馬</button>
     <button data-s="breed">🧬 配種</button>
     <button data-s="race">🏁 賽馬</button>
+    <button data-s="circus">🎪 馬戲團</button>
   </nav>
 
   <!-- 牧場 -->
   <section id="s-ranch" class="screen show">
     <h2>我的牧場</h2>
-    <p class="hint">你的伴侶得了重感冒,醫藥費要 <b style="color:var(--gold)">$10,000</b>。靠養馬賽馬賺錢吧!<br>
+    <p class="hint">你的伴侶得了重感冒,醫藥費要 <b style="color:var(--gold)">$62,375</b>。靠養馬賽馬賺錢吧!<br>
     馬跑步會消耗體力,記得餵食(每次 $20)。在這個世界,<b>萬物皆馬</b>。</p>
     <div class="cards" id="ranchCards"></div>
     <div class="row" style="margin-top:14px">
@@ -164,6 +165,25 @@
       </div>
     </div>
   </section>
+
+  <!-- 馬戲團 -->
+  <section id="s-circus" class="screen">
+    <h2>馬戲團</h2>
+    <div id="circusList">
+      <p class="hint">團長(當然,他也是一匹馬)開出<b>四大挑戰</b>,每一項需要的體型完全不同——賽馬場上的廢馬,說不定是馬戲團的天才!<br>
+      挑戰成功可獲得該帳篷的<b>緞帶</b>,還有「大富翁鈔票大砲」噴出的獎金。<b style="color:var(--gold)">集滿四條緞帶,就能打開神秘的獎品帳篷……</b>(每次挑戰消耗 20 體力)</p>
+      <div class="row" id="ribbonRow"></div>
+      <div class="cards" id="circusCards"></div>
+    </div>
+    <div id="circusPick" style="display:none">
+      <p class="hint" id="circusPickHint"></p>
+      <div class="cards" id="circusHorses"></div>
+      <div class="row"><button class="btn gray" id="btnCircusBack">← 返回挑戰列表</button></div>
+    </div>
+    <div id="circusView" style="display:none">
+      <canvas id="circusCanvas" width="860" height="360"></canvas>
+    </div>
+  </section>
 </div>
 
 <div id="msg"></div>
@@ -172,7 +192,7 @@
 <script>
 "use strict";
 // ============ 基本狀態 ============
-const GOAL = 10000;
+const GOAL = 62375;
 let money = 500, day = 1, horses = [], nextId = 1;
 
 const NAMES = ["閃電","馬鈴薯","不是馬","風速","布丁","咖啡","轟隆","小廢","飛毛","嘎嘎",
@@ -312,7 +332,7 @@ window.closeOverlay=()=>$("overlay").classList.remove("on");
 const SAVE_KEY="horsey-save-v1";
 function save(){
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won,ribbons}));
   }catch(e){} // 無痕模式等情況存不了就算了,不影響遊戲
 }
 function refreshHUD(){
@@ -334,7 +354,8 @@ function statBars(h){
   <div class="bar"><i style="width:${h.stats.stamina}%;background:#7ec850"></i></div>
   <div class="bar"><i style="width:${h.stats.balance}%;background:#6fb3e0"></i></div>
   <div class="bar"><i style="width:${h.energy}%;background:#e86a5e"></i></div>
-  <div class="bl"><span>🏃速度 ${h.stats.speed}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
+  <div class="bl"><span>🏃速度 ${h.stats.speed}</span><span>💪耐力 ${h.stats.stamina}</span></div>
+  <div class="bl"><span>⚖️平衡 ${h.stats.balance}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
 }
 
 function horseCard(h, extra){
@@ -627,6 +648,236 @@ function endRace(){
   },600);
 }
 
+// ============ 馬戲團 ============
+// 四大挑戰:每項偏好完全不同的體型,冷門怪馬也有出頭天
+const CIRCUS=[
+  {id:"dive", name:"高空跳水", emoji:"🤿", color:"#e86a5e", pay:800,
+   desc:"從高台一躍而下,精準落進水桶,不能摔到地板!",
+   build:"適合:嬌小輕盈、平衡好的馬",
+   fit:h=>clamp(h.stats.balance*0.5+(2.2-(h.g.bodyLen+h.g.bodyH))*30,5,95)},
+  {id:"car", name:"拉車", emoji:"🚗", color:"#6fb3e0", pay:600,
+   desc:"把一台車穩穩拉上坡,中途不能停、不能翻!",
+   build:"適合:高大粗壯、脖子長、耐力好的馬",
+   fit:h=>clamp(h.stats.stamina*0.5+(h.g.bodyLen+h.g.bodyH-1.4)*25+h.g.neckLen*8,5,95)},
+  {id:"tram", name:"彈跳床", emoji:"🤸", color:"#ffd24a", pay:500,
+   desc:"連續彈四下都碰到目標高度,不能亂旋轉!",
+   build:"適合:體型勻稱、四平八穩的馬",
+   fit:h=>{const dev=Math.abs(h.g.bodyLen-1)+Math.abs(h.g.bodyH-1)+Math.abs(h.g.legLen-1)+Math.abs(h.g.neckLen-1);
+     return clamp(h.stats.balance*0.6+(2-dev)*20,5,95);}},
+  {id:"acro", name:"雜技", emoji:"🎭", color:"#7ec850", pay:400,
+   desc:"背著手舞足蹈的雜技員走過踏板,不能向後倒!",
+   build:"適合:跑得快、重心穩的馬(賽馬健將)",
+   fit:h=>clamp(h.stats.speed*0.45+h.stats.balance*0.35,5,95)}
+];
+let ribbons={}; // {dive:true, car:true, ... prize:true}
+let circus=null, circusAnim=null, circusLast=0;
+const cc=$("circusCanvas"), cctx=cc.getContext("2d");
+
+function renderCircus(){
+  $("circusList").style.display=""; $("circusPick").style.display="none"; $("circusView").style.display="none";
+  if(circusAnim){ cancelAnimationFrame(circusAnim); circusAnim=null; }
+  $("ribbonRow").innerHTML = CIRCUS.map(ch=>
+    `<span class="oddsTag" style="border-left:4px solid ${ch.color}">${ribbons[ch.id]?"🎗️":"⬜"} ${ch.name}</span>`
+  ).join("") + (ribbons.prize?`<span class="oddsTag">🏆 獎品帳篷已開啟</span>`:"");
+  const el=$("circusCards"); el.innerHTML="";
+  CIRCUS.forEach(ch=>{
+    const d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<div style="font-size:34px;text-align:center;padding:6px;background:${ch.color}22;border-radius:8px">${ch.emoji}</div>
+      <div class="nm">${ch.name} ${ribbons[ch.id]?"🎗️":""}</div>
+      <div class="sp">${ch.desc}</div>
+      <div class="sp" style="color:var(--gold);margin-top:4px">${ch.build}</div>
+      <div class="sp" style="margin-top:4px">💰 獎金 $${ch.pay}</div>`;
+    d.onclick=()=>pickCircusHorse(ch);
+    el.appendChild(d);
+  });
+}
+
+function pickCircusHorse(ch){
+  $("circusList").style.display="none"; $("circusPick").style.display="";
+  $("circusPickHint").innerHTML=`<b>${ch.emoji} ${ch.name}</b>——${ch.desc}<br>${ch.build}。選一隻馬上場(消耗 20 體力):`;
+  const el=$("circusHorses"); el.innerHTML="";
+  horses.forEach(h=>{
+    const prob=Math.round(ch.fit(h));
+    const c=horseCard(h,`<div class="sp" style="margin-top:4px">🎯 成功率 <b style="color:${prob>=60?"var(--green)":prob>=35?"var(--gold)":"var(--red)"}">${prob}%</b>${h.energy<30?`<span style="color:var(--red)"> · 體力不足!</span>`:""}</div>`);
+    c.onclick=()=>{
+      if(h.energy<30) return toast(h.name+" 太累了,先餵食!");
+      startCircus(ch,h,prob);
+    };
+    el.appendChild(c);
+  });
+}
+$("btnCircusBack").onclick=renderCircus;
+
+function startCircus(ch,h,prob){
+  h.energy=clamp(h.energy-20,0,100); day++;
+  circus={ch, h, prob, success: Math.random()*100<prob, t:0, paid:false};
+  refreshHUD();
+  $("circusPick").style.display="none"; $("circusView").style.display="";
+  circusLast=0;
+  if(circusAnim) cancelAnimationFrame(circusAnim);
+  circusLoop();
+}
+
+function circusLoop(ts){
+  circusAnim=requestAnimationFrame(circusLoop);
+  const dt = ts ? clamp((ts-circusLast)/1000,0,0.05) : 1/60;
+  if(ts) circusLast=ts;
+  circus.t+=dt;
+  const W=cc.width,H=cc.height,t=circus.t,ok=circus.success,h=circus.h;
+  // 帳篷背景
+  cctx.fillStyle="#7a4a8c"; cctx.fillRect(0,0,W,H);
+  for(let i=0;i<9;i++){ cctx.fillStyle=i%2?"#8c5aa0":"#7a4a8c";
+    cctx.beginPath(); cctx.moveTo(W/2,-40); cctx.lineTo(i*110-60,80); cctx.lineTo(i*110+50,80); cctx.fill(); }
+  cctx.fillStyle="#5e3a24"; cctx.fillRect(0,H-50,W,50); // 地板
+  const id=circus.ch.id;
+  if(id==="dive") drawDive(t,ok,h,W,H);
+  else if(id==="car") drawCar(t,ok,h,W,H);
+  else if(id==="tram") drawTram(t,ok,h,W,H);
+  else drawAcro(t,ok,h,W,H);
+  if(t>=4.6 && !circus.paid){ circus.paid=true; finishCircus(); }
+}
+
+function drawDive(t,ok,h,W,H){
+  // 跳水台
+  cctx.fillStyle="#c9a15c"; cctx.fillRect(80,70,140,12); cctx.fillRect(140,82,20,H-132);
+  // 水桶
+  cctx.fillStyle="#3a6ea5"; cctx.beginPath();
+  cctx.moveTo(590,250); cctx.lineTo(680,250); cctx.lineTo(665,H-50); cctx.lineTo(605,H-50); cctx.fill();
+  cctx.fillStyle="#6fb3e0"; cctx.beginPath(); cctx.ellipse(635,252,45,10,0,0,7); cctx.fill();
+  const landX = ok?635:730;
+  if(t<1.4){
+    drawHorse(cctx,150,58,h,0,0.8);
+  } else if(t<3){
+    const p=(t-1.4)/1.6;
+    const x=150+(landX-150)*p, y=58-90*Math.sin(Math.PI*p)+ (ok?190:250)*p*p;
+    cctx.save(); cctx.translate(x,y); cctx.rotate(p*Math.PI*2); drawHorse(cctx,0,0,h,0,0.8); cctx.restore();
+  } else {
+    if(ok){
+      cctx.save(); cctx.beginPath(); cctx.rect(590,0,90,255); cctx.clip();
+      drawHorse(cctx,635,255,h,0,0.7); cctx.restore();
+      cctx.font="34px sans-serif"; cctx.textAlign="center"; cctx.fillText("💦",635,220);
+      cctx.font="22px sans-serif"; cctx.fillText("完美入水!",635,150);
+    } else {
+      drawHorse(cctx,landX,H-70,h,0,0.8,true);
+      cctx.font="34px sans-serif"; cctx.textAlign="center"; cctx.fillText("💥",landX,H-110);
+      cctx.font="22px sans-serif"; cctx.fillText("摔到桶子外面了……",560,150);
+    }
+  }
+}
+
+function drawCar(t,ok,h,W,H){
+  const x0=90,y0=H-60,x1=700,y1=140; // 坡道
+  cctx.strokeStyle="#c9a15c"; cctx.lineWidth=10;
+  cctx.beginPath(); cctx.moveTo(x0,y0); cctx.lineTo(x1,y1); cctx.stroke();
+  const ang=Math.atan2(y1-y0,x1-x0);
+  let p = ok ? Math.min(t/4.2,0.93) : (t<2.2 ? t/4.4 : Math.max(0.06, 0.5-(t-2.2)*0.35));
+  const px=x0+(x1-x0)*p, py=y0+(y1-y0)*p;
+  const cx2=x0+(x1-x0)*Math.max(0,p-0.14), cy2=y0+(y1-y0)*Math.max(0,p-0.14);
+  // 車
+  cctx.save(); cctx.translate(cx2,cy2-22); cctx.rotate(ang);
+  cctx.fillStyle="#d9534f"; cctx.fillRect(-40,-14,80,22);
+  cctx.fillStyle="#222";
+  cctx.beginPath(); cctx.arc(-24,12,10,0,7); cctx.arc(24,12,10,0,7); cctx.fill();
+  cctx.restore();
+  // 繩子
+  cctx.strokeStyle="#e8d5a0"; cctx.lineWidth=3;
+  cctx.beginPath(); cctx.moveTo(cx2,cy2-22); cctx.lineTo(px,py-18); cctx.stroke();
+  // 馬
+  const failNow = !ok && t>=2.2;
+  cctx.save(); cctx.translate(px,py-26); cctx.rotate(ang);
+  drawHorse(cctx,0,0,h,failNow?0:t,0.85,failNow); cctx.restore();
+  cctx.font="22px sans-serif"; cctx.textAlign="center"; cctx.fillStyle="#fff";
+  if(t>3){ cctx.fillText(ok?"拉上去了!":"車太重,滑下去了……",W/2,60); }
+}
+
+function drawTram(t,ok,h,W,H){
+  // 目標線
+  cctx.strokeStyle="#ffd24a"; cctx.lineWidth=3; cctx.setLineDash([12,8]);
+  cctx.beginPath(); cctx.moveTo(240,110); cctx.lineTo(620,110); cctx.stroke(); cctx.setLineDash([]);
+  cctx.fillStyle="#ffd24a"; cctx.font="15px sans-serif"; cctx.textAlign="left";
+  cctx.fillText("目標高度",628,116);
+  // 彈跳床
+  cctx.fillStyle="#333"; cctx.fillRect(350,H-58,160,14);
+  cctx.fillStyle="#5599dd"; cctx.fillRect(360,H-62,140,8);
+  const n=Math.floor(t/0.95), u=(t%0.95)/0.95;
+  const failing = !ok && n>=2;
+  let hh = failing ? 150 : 60+n*42; // 每次彈更高,第四下碰線
+  const y=(H-90) - Math.min(hh,220)*Math.sin(Math.PI*u);
+  const x=430 + (failing?(t-1.9)*130:0);
+  cctx.save(); cctx.translate(x,y);
+  if(failing) cctx.rotate((t-1.9)*9);
+  drawHorse(cctx,0,0,h,0,0.85); cctx.restore();
+  cctx.fillStyle="#fff"; cctx.font="bold 24px sans-serif"; cctx.textAlign="center";
+  cctx.fillText(`${Math.min(ok?n:2,4)}/4`,W/2,45);
+  if(t>3.9) cctx.fillText(ok?"四次達標!":"開始亂轉,飛出去了……",W/2,80);
+}
+
+function drawAcro(t,ok,h,W,H){
+  // 黃綠踏板
+  cctx.fillStyle="#c8d24a"; cctx.fillRect(100,H-58,600,10);
+  cctx.fillStyle="#7ec850"; cctx.fillRect(100,H-48,600,6);
+  const failAt=2.4, failNow=!ok&&t>=failAt;
+  const px = ok ? 130+540*Math.min(t/4.1,1) : 130+540*(Math.min(t,failAt)/4.4);
+  cctx.save(); cctx.translate(px,H-85);
+  if(failNow) cctx.rotate(-Math.min((t-failAt)*2.2,1.35)); // 向後倒
+  drawHorse(cctx,0,0,h,failNow?0:t,0.85);
+  // 雜技員(火柴人,手腳亂揮)
+  const g=h.g, topY=-(20*g.bodyH)/2-8, w=Math.sin(t*12)*0.8;
+  cctx.strokeStyle="#f3c"; cctx.lineWidth=3; cctx.lineCap="round";
+  cctx.beginPath(); cctx.arc(0,topY-16,6,0,7); cctx.stroke(); // 頭
+  cctx.beginPath(); cctx.moveTo(0,topY-10); cctx.lineTo(0,topY+2); cctx.stroke(); // 身
+  cctx.beginPath(); cctx.moveTo(0,topY-7); cctx.lineTo(-10,topY-14+w*6); cctx.moveTo(0,topY-7); cctx.lineTo(10,topY-14-w*6); cctx.stroke(); // 手
+  cctx.restore();
+  if(failNow){
+    const fp=(t-failAt);
+    cctx.font="26px sans-serif"; cctx.textAlign="center";
+    cctx.fillText("🤸啊!!",px+60+fp*120,H-160-Math.sin(Math.PI*Math.min(fp,1))*80);
+  }
+  cctx.fillStyle="#fff"; cctx.font="22px sans-serif"; cctx.textAlign="center";
+  if(t>3.6) cctx.fillText(ok?"順利走完全程!":"向後翻倒,雜技員飛出去了……",W/2,60);
+}
+
+function finishCircus(){
+  cancelAnimationFrame(circusAnim); circusAnim=null;
+  const {ch,h,success}=circus;
+  let txt;
+  if(success){
+    money+=ch.pay;
+    const first=!ribbons[ch.id];
+    if(first) ribbons[ch.id]=true;
+    refreshHUD();
+    txt=`<h2>🎉 挑戰成功!</h2><p>${h.emoji} ${h.name} 完成了「${ch.name}」!<br>
+      大富翁鈔票大砲噴出 <b style="color:var(--gold)">$${ch.pay}</b>!
+      ${first?`<br>🎗️ 獲得<b style="color:${ch.color}">${ch.name}緞帶</b>!`:""}</p>`;
+  } else {
+    save();
+    txt=`<h2>😵 挑戰失敗</h2><p>${h.emoji} ${h.name} 在「${ch.name}」出了糗……<br>觀眾笑得很開心,但一毛錢都沒有。<br><span class="sp">提示:${ch.build}</span></p>`;
+  }
+  overlay(txt+`<button class="btn" onclick="closeOverlay()">確定</button>`);
+  renderCircus();
+  checkPrizeTent();
+}
+
+function checkPrizeTent(){
+  if(ribbons.prize || !CIRCUS.every(ch=>ribbons[ch.id])) return;
+  ribbons.prize=true;
+  const freak=makeHorse({legLen:2.2, legCount:12, bodyLen:2.2, bodyH:0.5, neckLen:3, hue:rndi(0,360)},
+    {sp:"怪奇馬",emoji:"🎪"});
+  freak.name="團長的禮物·"+freak.name;
+  horses.push(freak);
+  money+=1500;
+  refreshHUD(); renderRanch(); renderCircus();
+  const cv=document.createElement("canvas"); cv.width=260; cv.height=130;
+  drawHorse(cv.getContext("2d"),130,70,freak,0,0.55);
+  setTimeout(()=>overlay(`<h2>🏆 獎品帳篷開啟!</h2>
+    <img src="${cv.toDataURL()}" style="background:#87b953;border-radius:10px;width:260px">
+    <p>四條緞帶集滿!團長掀開神秘帳篷——<br>
+    裡面是傳說中的 <b>${freak.emoji} ${freak.name}</b>(12 條腿!)<br>
+    外加鈔票大砲加碼 <b style="color:var(--gold)">$1,500</b>!</p>
+    <button class="btn" onclick="closeOverlay()">收下!</button>`),400);
+}
+
 // ============ 分頁切換 ============
 document.querySelectorAll("nav button").forEach(b=>{
   b.onclick=()=>{
@@ -635,8 +886,8 @@ document.querySelectorAll("nav button").forEach(b=>{
     document.querySelectorAll(".screen").forEach(s=>s.classList.remove("show"));
     $("s-"+b.dataset.s).classList.add("show");
     if(b.dataset.s==="breed") renderBreed();
-    if(b.dataset.s==="race" && !race?.over===false){}
     if(b.dataset.s==="race" && (!race || race.over)) renderRacePick();
+    if(b.dataset.s==="circus") renderCircus();
   };
 });
 
@@ -652,6 +903,7 @@ try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(s && Array.isArray(s.horses) && s.horses.length && typeof s.money==="number"){
     money=s.money; day=s.day||1; horses=s.horses; nextId=s.nextId||1000; won=!!s.won;
+    ribbons=s.ribbons||{};
     loaded=true;
   }
 }catch(e){}
