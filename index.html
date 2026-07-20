@@ -112,6 +112,7 @@
     <button data-s="breed">🧬 配種</button>
     <button data-s="race">🏁 賽馬</button>
     <button data-s="circus">🎪 馬戲團</button>
+    <button data-s="lab">🧪 實驗室</button>
   </nav>
 
   <!-- 牧場 -->
@@ -171,7 +172,8 @@
     <h2>馬戲團</h2>
     <div id="circusList">
       <p class="hint">團長(當然,他也是一匹馬)開出<b>四大挑戰</b>,每一項需要的體型完全不同——賽馬場上的廢馬,說不定是馬戲團的天才!<br>
-      挑戰成功可獲得該帳篷的<b>緞帶</b>,還有「大富翁鈔票大砲」噴出的獎金。<b style="color:var(--gold)">集滿四條緞帶,就能打開神秘的獎品帳篷……</b>(每次挑戰消耗 20 體力)</p>
+      挑戰成功可獲得該帳篷的<b>緞帶</b>,還有「大富翁鈔票大砲」噴出的獎金。<b style="color:var(--gold)">集滿四條緞帶,就能打開神秘的獎品帳篷……</b><br>
+      (每次挑戰消耗 20 體力;<b>每匹馬每項挑戰只能領一次獎金</b>,想再賺就得訓練別隻馬!)</p>
       <div class="row" id="ribbonRow"></div>
       <div class="cards" id="circusCards"></div>
     </div>
@@ -183,6 +185,15 @@
     <div id="circusView" style="display:none">
       <canvas id="circusCanvas" width="860" height="360"></canvas>
     </div>
+  </section>
+
+  <!-- 實驗室 -->
+  <section id="s-lab" class="screen">
+    <h2>CRISPR 實驗室</h2>
+    <p class="hint">把馬放進封存艙,抽出 DNA、重組基因鏈(A·C·G·T),再注射回去——<b style="color:var(--gold)">進化!</b>(費用 $3,000)<br>
+    進化馬是<b>野外抓不到、普通配種也生不出</b>的稀有物種,素質有機會<b style="color:var(--gold)">突破 100 上限(最高 150)</b>!<br>
+    想生出進化小馬?<b>父母雙方都必須是進化馬</b>才行。</p>
+    <div class="cards" id="labCards"></div>
   </section>
 </div>
 
@@ -198,12 +209,15 @@ let money = 500, day = 1, horses = [], nextId = 1;
 const NAMES = ["閃電","馬鈴薯","不是馬","風速","布丁","咖啡","轟隆","小廢","飛毛","嘎嘎",
   "章魚哥","阿嬤","豆花","雷神","慢慢","咕嚕","炸蝦","泥巴","火箭","呆呆"];
 const SPECIES = [
-  {sp:"馬",     emoji:"🐴", w:50},
-  {sp:"鱷魚馬", emoji:"🐊", w:12},
-  {sp:"蜈蚣馬", emoji:"🐛", w:10},
-  {sp:"人類馬", emoji:"🧍", w:10},
-  {sp:"長頸鹿馬",emoji:"🦒", w:10},
-  {sp:"雞馬",   emoji:"🐔", w:8}
+  {sp:"馬",     emoji:"🐴", w:38},
+  {sp:"鱷魚馬", emoji:"🐊", w:10},
+  {sp:"蜈蚣馬", emoji:"🐛", w:8},
+  {sp:"人類馬", emoji:"🧍", w:8},
+  {sp:"長頸鹿馬",emoji:"🦒", w:8},
+  {sp:"雞馬",   emoji:"🐔", w:6},
+  {sp:"鹿馬",   emoji:"🦌", w:8},
+  {sp:"羊馬",   emoji:"🐏", w:7},
+  {sp:"兔子馬", emoji:"🐰", w:7}
 ];
 
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -226,14 +240,21 @@ function makeHorse(genes, spInfo){
     bodyLen: rnd(0.7,1.3),   // 身長
     bodyH:   rnd(0.7,1.3),   // 身高胖瘦
     neckLen: rnd(0.5,1.5),   // 脖子
+    earLen:  rnd(0.6,1.5),   // 耳朵
+    tailLen: rnd(0.4,1.8),   // 尾巴
+    hornType:"none",         // 角:none / antler鹿角 / curl羊角 / uni獨角
+    hornSize: 1,
     hue:     rndi(0,360)
   };
   if(!genes){ // 物種調整基因
-    if(sp.sp==="鱷魚馬"){ g.legLen*=0.5; g.bodyLen*=1.6; g.neckLen*=0.4; }
+    if(sp.sp==="鱷魚馬"){ g.legLen*=0.5; g.bodyLen*=1.6; g.neckLen*=0.4; g.tailLen=rnd(1.8,2.8); }
     if(sp.sp==="蜈蚣馬"){ g.legCount=rndi(6,10); g.legLen*=0.6; g.bodyLen*=1.5; }
-    if(sp.sp==="人類馬"){ g.legCount=2; g.legLen*=1.4; g.bodyLen*=0.6; }
+    if(sp.sp==="人類馬"){ g.legCount=2; g.legLen*=1.4; g.bodyLen*=0.6; g.tailLen=0.3; }
     if(sp.sp==="長頸鹿馬"){ g.neckLen*=2.2; g.legLen*=1.4; }
-    if(sp.sp==="雞馬"){ g.legCount=2; g.bodyLen*=0.7; g.legLen*=0.8; }
+    if(sp.sp==="雞馬"){ g.legCount=2; g.bodyLen*=0.7; g.legLen*=0.8; g.tailLen=0.5; }
+    if(sp.sp==="鹿馬"){ g.hornType="antler"; g.hornSize=rnd(0.6,1.9); g.legLen*=1.2; }
+    if(sp.sp==="羊馬"){ g.hornType="curl"; g.hornSize=rnd(0.7,1.5); g.bodyH*=1.25; g.legLen*=0.8; }
+    if(sp.sp==="兔子馬"){ g.earLen=rnd(2.2,3.4); g.tailLen=0.35; g.legLen*=1.15; g.bodyLen*=0.75; }
   }
   return {
     id: nextId++,
@@ -245,12 +266,15 @@ function makeHorse(genes, spInfo){
 }
 
 // 身體幾何決定能力:腿長+腿多=快;太高瘦=容易翻車
-function calcStats(g){
-  const speed   = clamp(30 + g.legLen*40 + (g.legCount-4)*4 - g.bodyLen*8, 5, 100);
-  const stamina = clamp(30 + g.bodyLen*25 + g.bodyH*20 - g.legLen*10, 5, 100);
+// 進化馬(evo)有各項倍率加成,上限從 100 提高到 150
+function calcStats(g,evo){
+  let speed   = 30 + g.legLen*40 + (g.legCount-4)*4 - g.bodyLen*8;
+  let stamina = 30 + g.bodyLen*25 + g.bodyH*20 - g.legLen*10;
   const tall = g.legLen + g.neckLen*0.5;
-  const balance = clamp(95 - tall*28 + g.bodyLen*15 + (g.legCount-4)*6, 5, 100);
-  return {speed:Math.round(speed), stamina:Math.round(stamina), balance:Math.round(balance)};
+  let balance = 95 - tall*28 + g.bodyLen*15 + (g.legCount-4)*6;
+  const cap = evo?150:100;
+  if(evo){ speed*=evo.spd; stamina*=evo.sta; balance*=evo.bal; }
+  return {speed:Math.round(clamp(speed,5,cap)), stamina:Math.round(clamp(stamina,5,cap)), balance:Math.round(clamp(balance,5,cap))};
 }
 const power = h => h.stats.speed*0.55 + h.stats.stamina*0.25 + h.stats.balance*0.2;
 
@@ -262,19 +286,35 @@ function breed(a,b){
     bodyLen: mix(a.g.bodyLen,b.g.bodyLen),
     bodyH: mix(a.g.bodyH,b.g.bodyH),
     neckLen: mix(a.g.neckLen,b.g.neckLen),
+    earLen: mix(a.g.earLen||1,b.g.earLen||1),
+    tailLen: mix(a.g.tailLen||1,b.g.tailLen||1),
+    hornType: Math.random()<0.5?(a.g.hornType||"none"):(b.g.hornType||"none"),
+    hornSize: mix(a.g.hornSize||1,b.g.hornSize||1),
     hue: Math.random()<0.5?a.g.hue:b.g.hue
   };
   let mutated = null;
   if(Math.random()<0.25){ // 突變!
-    const m = pick(["legLen","legCount","neckLen","bodyLen"]);
+    const m = pick(["legLen","legCount","neckLen","bodyLen","earLen","tailLen","horn"]);
     if(m==="legCount"){ g.legCount = clamp(g.legCount+pick([-2,2]),2,12); mutated="腿的數量變了!"; }
-    else { g[m] *= pick([0.4,2.0]); mutated = {legLen:"腿長突變!",neckLen:"脖子突變!",bodyLen:"身體突變!"}[m]; }
+    else if(m==="horn"){ g.hornType = pick(["none","antler","curl"]); g.hornSize=rnd(0.6,2.2); mutated="頭上的角突變!"; }
+    else { g[m] *= pick([0.4,2.0]); mutated = {legLen:"腿長突變!",neckLen:"脖子突變!",bodyLen:"身體突變!",earLen:"耳朵突變!",tailLen:"尾巴突變!"}[m]; }
     g.hue = rndi(0,360);
   }
   g.legLen=clamp(g.legLen,0.2,3); g.neckLen=clamp(g.neckLen,0.2,3.5);
   g.bodyLen=clamp(g.bodyLen,0.4,2.5); g.bodyH=clamp(g.bodyH,0.4,2);
-  const sp = Math.random()<0.5 ? {sp:a.sp,emoji:a.emoji} : {sp:b.sp,emoji:b.emoji};
-  const foal = makeHorse(g, sp);
+  g.earLen=clamp(g.earLen,0.2,4); g.tailLen=clamp(g.tailLen,0.2,3); g.hornSize=clamp(g.hornSize,0.3,2.5);
+  // 進化馬的血統:只有雙方都是進化馬,小馬才會是進化種
+  let spSrc;
+  if(a.evo&&b.evo) spSrc = Math.random()<0.5?a:b;
+  else if(a.evo) spSrc = b;
+  else if(b.evo) spSrc = a;
+  else spSrc = Math.random()<0.5?a:b;
+  const foal = makeHorse(g, {sp:spSrc.sp,emoji:spSrc.emoji});
+  if(a.evo&&b.evo){
+    const em=(x,y)=>clamp((x+y)/2*rnd(0.95,1.12),1.1,1.8);
+    foal.evo={spd:em(a.evo.spd,b.evo.spd), sta:em(a.evo.sta,b.evo.sta), bal:em(a.evo.bal,b.evo.bal)};
+    foal.stats=calcStats(foal.g,foal.evo);
+  }
   foal.mutated = mutated;
   return foal;
 }
@@ -296,10 +336,11 @@ function drawHorse(ctx,x,y,h,t,s,fallen){
     ctx.lineTo(lx+Math.sin(sw)*legL*0.6, bodyH*0.3+Math.cos(sw)*legL);
     ctx.stroke();
   }
-  // 尾巴
+  // 尾巴(tailLen 決定長短)
+  const tl=g.tailLen||1;
   ctx.strokeStyle=col2; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(-bodyW/2,-bodyH*0.2);
-  ctx.quadraticCurveTo(-bodyW/2-10,-bodyH*0.2-8+Math.sin(t*6)*3,-bodyW/2-14,2); ctx.stroke();
+  ctx.quadraticCurveTo(-bodyW/2-10*tl,-bodyH*0.2-8*tl+Math.sin(t*6)*3,-bodyW/2-15*tl,2+4*tl); ctx.stroke();
   // 身體
   ctx.fillStyle=col;
   ctx.beginPath(); ctx.ellipse(0,0,bodyW/2,bodyH/2,0,0,7); ctx.fill();
@@ -312,9 +353,34 @@ function drawHorse(ctx,x,y,h,t,s,fallen){
   // 眼睛
   ctx.fillStyle="#222";
   ctx.beginPath(); ctx.arc(nx+16,hy-4,1.6,0,7); ctx.fill();
-  // 耳朵
+  // 耳朵(兔子馬的長耳超明顯)
+  const eL=6*(g.earLen||1);
   ctx.strokeStyle=col2; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(nx+8,hy-7); ctx.lineTo(nx+6,hy-13); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(nx+8,hy-7); ctx.lineTo(nx+5,hy-7-eL); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(nx+13,hy-6); ctx.lineTo(nx+12,hy-6-eL*0.85); ctx.stroke();
+  // 角
+  const hs=g.hornSize||1;
+  if(g.hornType==="antler"){ // 鹿角:分岔樹枝狀
+    ctx.strokeStyle="#8a6b3d"; ctx.lineWidth=2.5;
+    for(const s of [-1,1]){
+      const bx=nx+9+s*3, by=hy-8;
+      ctx.beginPath();
+      ctx.moveTo(bx,by); ctx.lineTo(bx+s*3*hs,by-13*hs);
+      ctx.moveTo(bx+s*1.5*hs,by-6*hs); ctx.lineTo(bx+s*8*hs,by-11*hs);
+      ctx.moveTo(bx+s*2.5*hs,by-10*hs); ctx.lineTo(bx-s*1*hs,by-17*hs);
+      ctx.stroke();
+    }
+  } else if(g.hornType==="curl"){ // 羊角:捲曲
+    ctx.strokeStyle="#b0885a"; ctx.lineWidth=3.5;
+    for(const s of [-1,1]){
+      ctx.beginPath();
+      ctx.arc(nx+9+s*7, hy-9, 5.5*hs, Math.PI*0.9, Math.PI*2.6);
+      ctx.stroke();
+    }
+  } else if(g.hornType==="uni"){ // 獨角:金色的角
+    ctx.fillStyle="#ffd24a";
+    ctx.beginPath(); ctx.moveTo(nx+9,hy-8); ctx.lineTo(nx+16,hy-9-15*hs); ctx.lineTo(nx+14,hy-7); ctx.closePath(); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -350,12 +416,12 @@ function win(){
 }
 
 function statBars(h){
-  return `<div class="bar"><i style="width:${h.stats.speed}%;background:#e8a54a"></i></div>
-  <div class="bar"><i style="width:${h.stats.stamina}%;background:#7ec850"></i></div>
-  <div class="bar"><i style="width:${h.stats.balance}%;background:#6fb3e0"></i></div>
-  <div class="bar"><i style="width:${h.energy}%;background:#e86a5e"></i></div>
-  <div class="bl"><span>🏃速度 ${h.stats.speed}</span><span>💪耐力 ${h.stats.stamina}</span></div>
-  <div class="bl"><span>⚖️平衡 ${h.stats.balance}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
+  // 超過 100 的素質(進化馬)以金色條+⚡顯示
+  const bar=(v,c)=>`<div class="bar"><i style="width:${Math.min(v,100)}%;background:${v>100?"linear-gradient(90deg,"+c+",#ffd24a)":c}"></i></div>`;
+  const num=v=>v>100?`<b style="color:var(--gold)">${v}⚡</b>`:v;
+  return bar(h.stats.speed,"#e8a54a")+bar(h.stats.stamina,"#7ec850")+bar(h.stats.balance,"#6fb3e0")+bar(h.energy,"#e86a5e")+
+  `<div class="bl"><span>🏃速度 ${num(h.stats.speed)}</span><span>💪耐力 ${num(h.stats.stamina)}</span></div>
+  <div class="bl"><span>⚖️平衡 ${num(h.stats.balance)}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
 }
 
 function horseCard(h, extra){
@@ -363,7 +429,7 @@ function horseCard(h, extra){
   d.className="card"; d.dataset.id=h.id;
   d.innerHTML=`<canvas width="180" height="90"></canvas>
     <div class="nm">${h.emoji} ${h.name}</div>
-    <div class="sp">${h.sp} · ${h.g.legCount} 條腿</div>
+    <div class="sp">${h.evo?`<b style="color:var(--gold)">⚡進化種</b> · `:""}${h.sp} · ${h.g.legCount} 條腿</div>
     ${statBars(h)}${extra||""}`;
   const c=d.querySelector("canvas"), ctx=c.getContext("2d");
   drawHorse(ctx,90,55,h,0,Math.min(1.1, 1.6/Math.max(h.g.bodyLen,h.g.legLen,h.g.neckLen*0.8)));
@@ -699,8 +765,12 @@ function pickCircusHorse(ch){
   const el=$("circusHorses"); el.innerHTML="";
   horses.forEach(h=>{
     const prob=Math.round(ch.fit(h));
-    const c=horseCard(h,`<div class="sp" style="margin-top:4px">🎯 成功率 <b style="color:${prob>=60?"var(--green)":prob>=35?"var(--gold)":"var(--red)"}">${prob}%</b>${h.energy<30?`<span style="color:var(--red)"> · 體力不足!</span>`:""}</div>`);
+    const done=!!(h.circusDone&&h.circusDone[ch.id]);
+    const c=horseCard(h, done
+      ?`<div class="sp" style="margin-top:4px;color:var(--gold)">✅ 已通關,不能再領獎金</div>`
+      :`<div class="sp" style="margin-top:4px">🎯 成功率 <b style="color:${prob>=60?"var(--green)":prob>=35?"var(--gold)":"var(--red)"}">${prob}%</b>${h.energy<30?`<span style="color:var(--red)"> · 體力不足!</span>`:""}</div>`);
     c.onclick=()=>{
+      if(done) return toast(h.name+" 已經通關過「"+ch.name+"」,換一隻馬挑戰吧!");
       if(h.energy<30) return toast(h.name+" 太累了,先餵食!");
       startCircus(ch,h,prob);
     };
@@ -844,6 +914,7 @@ function finishCircus(){
   let txt;
   if(success){
     money+=ch.pay;
+    (h.circusDone??={})[ch.id]=true; // 同一匹馬同一挑戰只能領一次獎金
     const first=!ribbons[ch.id];
     if(first) ribbons[ch.id]=true;
     refreshHUD();
@@ -878,6 +949,45 @@ function checkPrizeTent(){
     <button class="btn" onclick="closeOverlay()">收下!</button>`),400);
 }
 
+// ============ CRISPR 實驗室 ============
+const EVO_COST=3000;
+// 進化限定物種:野外抓不到,普通配種也生不出
+const EVO_SPECIES=[
+  {sp:"獨角獸馬", emoji:"🦄", tweak:g=>{ g.hornType="uni"; g.hornSize=rnd(1,1.6); g.hue=rndi(260,330); }},
+  {sp:"龍馬",     emoji:"🐉", tweak:g=>{ g.hornType="antler"; g.hornSize=rnd(0.8,1.4); g.tailLen=rnd(2,3); g.hue=pick([115,5]); }},
+  {sp:"機械馬",   emoji:"🤖", tweak:g=>{ g.hue=215; g.earLen=0.4; g.tailLen=0.5; }},
+  {sp:"月兔馬",   emoji:"🌙", tweak:g=>{ g.earLen=rnd(2.8,3.8); g.tailLen=0.3; g.hue=rndi(40,60); }}
+];
+function renderLab(){
+  const el=$("labCards"); el.innerHTML="";
+  horses.forEach(h=>{
+    const c=horseCard(h, h.evo
+      ?`<div class="sp" style="margin-top:4px;color:var(--gold)">⚡ 已是進化馬,無法再進化</div>`
+      :`<div class="row" style="margin:6px 0 0"><button class="btn sm" data-evo="${h.id}">🧬 進化 $${EVO_COST}</button></div>`);
+    el.appendChild(c);
+  });
+  el.querySelectorAll("[data-evo]").forEach(b=>b.onclick=()=>{
+    const h=horses.find(x=>x.id==b.dataset.evo);
+    if(money<EVO_COST) return toast("錢不夠!進化要 $"+EVO_COST);
+    money-=EVO_COST; day++;
+    const before={...h.stats};
+    const ev=pick(EVO_SPECIES);
+    ev.tweak(h.g);
+    h.sp=ev.sp; h.emoji=ev.emoji;
+    h.evo={spd:rnd(1.2,1.6), sta:rnd(1.2,1.6), bal:rnd(1.2,1.6)};
+    h.stats=calcStats(h.g,h.evo);
+    refreshHUD(); renderRanch(); renderLab();
+    const cv=document.createElement("canvas"); cv.width=240; cv.height=120;
+    drawHorse(cv.getContext("2d"),120,70,h,0,0.8);
+    const arrow=(k,i)=>`${before[k]} → <b style="color:${h.stats[k]>100?"var(--gold)":"inherit"}">${h.stats[k]}${h.stats[k]>100?"⚡":""}</b>`;
+    overlay(`<h2>🧬 進化成功!</h2>
+      <img src="${cv.toDataURL()}" style="background:#87b953;border-radius:10px;width:240px">
+      <p>DNA 重組完成!<b>${h.name}</b> 進化成了<br><b style="color:var(--gold);font-size:20px">${h.emoji} ${h.sp}</b>!<br>
+      🏃 ${arrow("speed")} · 💪 ${arrow("stamina")} · ⚖️ ${arrow("balance")}</p>
+      <button class="btn" onclick="closeOverlay()">太狂了!</button>`);
+  });
+}
+
 // ============ 分頁切換 ============
 document.querySelectorAll("nav button").forEach(b=>{
   b.onclick=()=>{
@@ -888,6 +998,7 @@ document.querySelectorAll("nav button").forEach(b=>{
     if(b.dataset.s==="breed") renderBreed();
     if(b.dataset.s==="race" && (!race || race.over)) renderRacePick();
     if(b.dataset.s==="circus") renderCircus();
+    if(b.dataset.s==="lab") renderLab();
   };
 });
 
@@ -904,6 +1015,9 @@ try{
   if(s && Array.isArray(s.horses) && s.horses.length && typeof s.money==="number"){
     money=s.money; day=s.day||1; horses=s.horses; nextId=s.nextId||1000; won=!!s.won;
     ribbons=s.ribbons||{};
+    // 舊存檔的馬補上新基因欄位
+    horses.forEach(h=>{ const g=h.g;
+      g.earLen??=1; g.tailLen??=1; g.hornType??="none"; g.hornSize??=1; });
     loaded=true;
   }
 }catch(e){}
