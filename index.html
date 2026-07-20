@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小馬大亨 Horsey!</title>
+<style>
+  :root{
+    --bg:#2b2118; --panel:#3d2f21; --panel2:#4a3a29; --line:#5e4a33;
+    --text:#f3e7d3; --dim:#c4b39a; --gold:#ffd24a; --green:#7ec850; --red:#e86a5e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"Microsoft JhengHei","PingFang TC","Segoe UI",sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; padding:12px;
+  }
+  button{touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  @media (max-width:600px){
+    body{padding:8px;}
+    header h1{font-size:17px;}
+    .cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+    nav button{font-size:14px; padding:8px 4px; min-width:70px;}
+  }
+  #app{max-width:900px; margin:0 auto;}
+  header{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+    background:var(--panel); border:2px solid var(--line); border-radius:12px;
+    padding:10px 14px; margin-bottom:10px;
+  }
+  header h1{font-size:20px; margin-right:auto;}
+  .stat{background:var(--panel2); border-radius:8px; padding:4px 10px; font-size:14px;}
+  .stat b{color:var(--gold);}
+  #goalbar{
+    width:100%; height:10px; background:#241b12; border-radius:6px; overflow:hidden;
+  }
+  #goalfill{height:100%; background:linear-gradient(90deg,#e8a54a,var(--gold)); width:0%; transition:width .4s;}
+  nav{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
+  nav button{
+    flex:1; min-width:80px; padding:10px 6px; font-size:15px; font-weight:bold;
+    background:var(--panel); color:var(--dim); border:2px solid var(--line);
+    border-radius:10px; cursor:pointer; font-family:inherit;
+  }
+  nav button.active{background:var(--panel2); color:var(--gold); border-color:var(--gold);}
+  .screen{display:none; background:var(--panel); border:2px solid var(--line); border-radius:12px; padding:14px;}
+  .screen.show{display:block;}
+  h2{font-size:17px; margin-bottom:8px; color:var(--gold);}
+  .hint{color:var(--dim); font-size:13px; margin-bottom:10px; line-height:1.6;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px;}
+  .card{
+    background:var(--panel2); border:2px solid var(--line); border-radius:10px;
+    padding:8px; cursor:pointer; transition:transform .1s;
+  }
+  .card:hover{transform:translateY(-2px);}
+  .card.sel{border-color:var(--gold); box-shadow:0 0 8px rgba(255,210,74,.4);}
+  .card canvas{width:100%; background:#87b953; border-radius:6px; display:block;}
+  .card .nm{font-weight:bold; margin:6px 0 2px; font-size:15px;}
+  .card .sp{font-size:12px; color:var(--dim);}
+  .bar{height:7px; background:#241b12; border-radius:4px; margin:3px 0; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:4px;}
+  .bl{font-size:11px; color:var(--dim); display:flex; justify-content:space-between; margin-top:5px;}
+  .btn{
+    padding:10px 18px; font-size:15px; font-weight:bold; font-family:inherit;
+    background:var(--gold); color:#3a2c14; border:none; border-radius:10px; cursor:pointer;
+  }
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn.sm{padding:5px 10px; font-size:13px;}
+  .btn.gray{background:var(--panel2); color:var(--text); border:1px solid var(--line);}
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0;}
+  #lassoCanvas,#raceCanvas{width:100%; border-radius:10px; display:block; background:#87b953;}
+  #msg{
+    position:fixed; left:50%; top:16px; transform:translateX(-50%);
+    background:#111c; color:#fff; padding:10px 20px; border-radius:10px;
+    font-size:15px; opacity:0; pointer-events:none; transition:opacity .3s; z-index:99;
+    max-width:90vw; text-align:center;
+  }
+  #msg.on{opacity:1;}
+  #overlay{
+    position:fixed; inset:0; background:#000a; display:none;
+    align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  #overlay.on{display:flex;}
+  #overlay .box{
+    background:var(--panel); border:3px solid var(--gold); border-radius:16px;
+    padding:26px; max-width:420px; text-align:center; line-height:1.8;
+  }
+  #overlay h2{font-size:24px;}
+  .oddsTag{background:#241b12; border-radius:6px; padding:3px 8px; font-size:13px; color:var(--gold);}
+  input[type=number]{
+    width:100px; padding:8px; font-size:15px; border-radius:8px;
+    border:2px solid var(--line); background:#241b12; color:var(--text); font-family:inherit;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🐴 小馬大亨</h1>
+    <div class="stat">💰 <b id="uiMoney">0</b></div>
+    <div class="stat">📅 第 <b id="uiDay">1</b> 天</div>
+    <div id="goalbar"><div id="goalfill"></div></div>
+  </header>
+
+  <nav>
+    <button data-s="ranch" class="active">🏡 牧場</button>
+    <button data-s="catch">🤠 抓馬</button>
+    <button data-s="breed">🧬 配種</button>
+    <button data-s="race">🏁 賽馬</button>
+  </nav>
+
+  <!-- 牧場 -->
+  <section id="s-ranch" class="screen show">
+    <h2>我的牧場</h2>
+    <p class="hint">你的伴侶得了重感冒,醫藥費要 <b style="color:var(--gold)">$10,000</b>。靠養馬賽馬賺錢吧!<br>
+    馬跑步會消耗體力,記得餵食(每次 $20)。在這個世界,<b>萬物皆馬</b>。</p>
+    <div class="cards" id="ranchCards"></div>
+  </section>
+
+  <!-- 抓馬 -->
+  <section id="s-catch" class="screen">
+    <h2>荒野抓馬</h2>
+    <p class="hint">出發一次 $100。等野馬走進圈裡,按「丟套索」!抓到什麼就看運氣了——畢竟萬物皆馬。</p>
+    <canvas id="lassoCanvas" width="860" height="320"></canvas>
+    <div class="row">
+      <button class="btn" id="btnGoWild">🚚 出發尋找野馬($100)</button>
+      <button class="btn" id="btnLasso" disabled>🤠 丟套索!</button>
+    </div>
+  </section>
+
+  <!-- 配種 -->
+  <section id="s-breed" class="screen">
+    <h2>配種實驗室</h2>
+    <p class="hint">選兩隻馬(費用 $150),小馬會混合父母的基因——腿長、腿數、體型都會遺傳,偶爾還會<b style="color:var(--red)">突變</b>。腿愈長愈快,但太瘦長容易翻車!</p>
+    <div class="cards" id="breedCards"></div>
+    <div class="row">
+      <button class="btn" id="btnBreed" disabled>🧬 開始配種($150)</button>
+    </div>
+  </section>
+
+  <!-- 賽馬 -->
+  <section id="s-race" class="screen">
+    <h2>賽馬場</h2>
+    <div id="racePick">
+      <p class="hint">選一隻體力夠的馬出賽,再決定下注金額。賠率依你的馬相對於對手的實力而定——馬愈爛,賠率愈高!</p>
+      <div class="cards" id="raceCards"></div>
+      <div class="row">
+        <span>下注:$</span><input type="number" id="betInput" value="50" min="10" step="10">
+        <span class="oddsTag" id="oddsTag">賠率 —</span>
+        <button class="btn" id="btnRace" disabled>🏁 開始比賽!</button>
+      </div>
+    </div>
+    <div id="raceView" style="display:none">
+      <canvas id="raceCanvas" width="860" height="360"></canvas>
+      <div class="row">
+        <button class="btn gray" id="btnRaceBack" style="display:none">← 回到選馬</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="msg"></div>
+<div id="overlay"><div class="box" id="overlayBox"></div></div>
+
+<script>
+"use strict";
+// ============ 基本狀態 ============
+const GOAL = 10000;
+let money = 500, day = 1, horses = [], nextId = 1;
+
+const NAMES = ["閃電","馬鈴薯","不是馬","風速","布丁","咖啡","轟隆","小廢","飛毛","嘎嘎",
+  "章魚哥","阿嬤","豆花","雷神","慢慢","咕嚕","炸蝦","泥巴","火箭","呆呆"];
+const SPECIES = [
+  {sp:"馬",     emoji:"🐴", w:50},
+  {sp:"鱷魚馬", emoji:"🐊", w:12},
+  {sp:"蜈蚣馬", emoji:"🐛", w:10},
+  {sp:"人類馬", emoji:"🧍", w:10},
+  {sp:"長頸鹿馬",emoji:"🦒", w:10},
+  {sp:"雞馬",   emoji:"🐔", w:8}
+];
+
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const rndi=(a,b)=>Math.floor(rnd(a,b+1));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+function pickSpecies(){
+  let t = SPECIES.reduce((s,x)=>s+x.w,0), r = Math.random()*t;
+  for(const s of SPECIES){ if((r-=s.w)<0) return s; }
+  return SPECIES[0];
+}
+
+// ============ 馬:基因 → 外型與能力 ============
+function makeHorse(genes, spInfo){
+  const sp = spInfo || pickSpecies();
+  let g = genes || {
+    legLen:  rnd(0.5,1.5),   // 腿長
+    legCount: 4,             // 腿數
+    bodyLen: rnd(0.7,1.3),   // 身長
+    bodyH:   rnd(0.7,1.3),   // 身高胖瘦
+    neckLen: rnd(0.5,1.5),   // 脖子
+    hue:     rndi(0,360)
+  };
+  if(!genes){ // 物種調整基因
+    if(sp.sp==="鱷魚馬"){ g.legLen*=0.5; g.bodyLen*=1.6; g.neckLen*=0.4; }
+    if(sp.sp==="蜈蚣馬"){ g.legCount=rndi(6,10); g.legLen*=0.6; g.bodyLen*=1.5; }
+    if(sp.sp==="人類馬"){ g.legCount=2; g.legLen*=1.4; g.bodyLen*=0.6; }
+    if(sp.sp==="長頸鹿馬"){ g.neckLen*=2.2; g.legLen*=1.4; }
+    if(sp.sp==="雞馬"){ g.legCount=2; g.bodyLen*=0.7; g.legLen*=0.8; }
+  }
+  return {
+    id: nextId++,
+    name: pick(NAMES)+"·"+rndi(1,99)+"號",
+    sp: sp.sp, emoji: sp.emoji,
+    g, energy: 100,
+    stats: calcStats(g)
+  };
+}
+
+// 身體幾何決定能力:腿長+腿多=快;太高瘦=容易翻車
+function calcStats(g){
+  const speed   = clamp(30 + g.legLen*40 + (g.legCount-4)*4 - g.bodyLen*8, 5, 100);
+  const stamina = clamp(30 + g.bodyLen*25 + g.bodyH*20 - g.legLen*10, 5, 100);
+  const tall = g.legLen + g.neckLen*0.5;
+  const balance = clamp(95 - tall*28 + g.bodyLen*15 + (g.legCount-4)*6, 5, 100);
+  return {speed:Math.round(speed), stamina:Math.round(stamina), balance:Math.round(balance)};
+}
+const power = h => h.stats.speed*0.55 + h.stats.stamina*0.25 + h.stats.balance*0.2;
+
+function breed(a,b){
+  const mix=(x,y)=> (Math.random()<0.5?x:y) * rnd(0.9,1.1);
+  const g = {
+    legLen: mix(a.g.legLen,b.g.legLen),
+    legCount: Math.random()<0.5?a.g.legCount:b.g.legCount,
+    bodyLen: mix(a.g.bodyLen,b.g.bodyLen),
+    bodyH: mix(a.g.bodyH,b.g.bodyH),
+    neckLen: mix(a.g.neckLen,b.g.neckLen),
+    hue: Math.random()<0.5?a.g.hue:b.g.hue
+  };
+  let mutated = null;
+  if(Math.random()<0.25){ // 突變!
+    const m = pick(["legLen","legCount","neckLen","bodyLen"]);
+    if(m==="legCount"){ g.legCount = clamp(g.legCount+pick([-2,2]),2,12); mutated="腿的數量變了!"; }
+    else { g[m] *= pick([0.4,2.0]); mutated = {legLen:"腿長突變!",neckLen:"脖子突變!",bodyLen:"身體突變!"}[m]; }
+    g.hue = rndi(0,360);
+  }
+  g.legLen=clamp(g.legLen,0.2,3); g.neckLen=clamp(g.neckLen,0.2,3.5);
+  g.bodyLen=clamp(g.bodyLen,0.4,2.5); g.bodyH=clamp(g.bodyH,0.4,2);
+  const sp = Math.random()<0.5 ? {sp:a.sp,emoji:a.emoji} : {sp:b.sp,emoji:b.emoji};
+  const foal = makeHorse(g, sp);
+  foal.mutated = mutated;
+  return foal;
+}
+
+// ============ 畫馬(程序化,基因決定外觀)============
+function drawHorse(ctx,x,y,h,t,s,fallen){
+  const g=h.g;
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
+  if(fallen) ctx.rotate(Math.PI/2*0.9);
+  const bodyW=46*g.bodyLen, bodyH=20*g.bodyH, legL=26*g.legLen, neck=18*g.neckLen;
+  const col=`hsl(${g.hue},45%,55%)`, col2=`hsl(${g.hue},45%,38%)`;
+  ctx.lineCap="round";
+  // 腿
+  ctx.strokeStyle=col2; ctx.lineWidth=4.5;
+  for(let i=0;i<g.legCount;i++){
+    const lx=-bodyW/2+6+(bodyW-12)*(g.legCount===1?0.5:i/(g.legCount-1));
+    const ph=t*10+i*2.1, sw=fallen?0:Math.sin(ph)*0.5;
+    ctx.beginPath(); ctx.moveTo(lx,bodyH*0.3);
+    ctx.lineTo(lx+Math.sin(sw)*legL*0.6, bodyH*0.3+Math.cos(sw)*legL);
+    ctx.stroke();
+  }
+  // 尾巴
+  ctx.strokeStyle=col2; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(-bodyW/2,-bodyH*0.2);
+  ctx.quadraticCurveTo(-bodyW/2-10,-bodyH*0.2-8+Math.sin(t*6)*3,-bodyW/2-14,2); ctx.stroke();
+  // 身體
+  ctx.fillStyle=col;
+  ctx.beginPath(); ctx.ellipse(0,0,bodyW/2,bodyH/2,0,0,7); ctx.fill();
+  // 脖子+頭
+  const nx=bodyW/2-4, hy=-bodyH/2-neck;
+  ctx.strokeStyle=col; ctx.lineWidth=8;
+  ctx.beginPath(); ctx.moveTo(nx,-bodyH*0.2); ctx.lineTo(nx+6,hy); ctx.stroke();
+  ctx.fillStyle=col;
+  ctx.beginPath(); ctx.ellipse(nx+13,hy-2,10,6,0.3,0,7); ctx.fill();
+  // 眼睛
+  ctx.fillStyle="#222";
+  ctx.beginPath(); ctx.arc(nx+16,hy-4,1.6,0,7); ctx.fill();
+  // 耳朵
+  ctx.strokeStyle=col2; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(nx+8,hy-7); ctx.lineTo(nx+6,hy-13); ctx.stroke();
+  ctx.restore();
+}
+
+// ============ UI 工具 ============
+const $=id=>document.getElementById(id);
+let msgTimer;
+function toast(t){
+  const m=$("msg"); m.textContent=t; m.classList.add("on");
+  clearTimeout(msgTimer); msgTimer=setTimeout(()=>m.classList.remove("on"),2600);
+}
+function overlay(html){ $("overlayBox").innerHTML=html; $("overlay").classList.add("on"); }
+window.closeOverlay=()=>$("overlay").classList.remove("on");
+
+function refreshHUD(){
+  $("uiMoney").textContent=money; $("uiDay").textContent=day;
+  $("goalfill").style.width=clamp(money/GOAL*100,0,100)+"%";
+  if(money>=GOAL) win();
+}
+let won=false;
+function win(){
+  if(won)return; won=true;
+  overlay(`<h2>🎉 你成功了!</h2><p>你賺到了 $${money},付清醫藥費,伴侶的感冒終於好了!<br>
+  一共花了 ${day} 天、養了無數隻奇怪的馬。<br><b>萬物皆馬,而你是馬中之王。</b></p>
+  <button class="btn" onclick="closeOverlay()">繼續玩</button>`);
+}
+
+function statBars(h){
+  return `<div class="bar"><i style="width:${h.stats.speed}%;background:#e8a54a"></i></div>
+  <div class="bar"><i style="width:${h.stats.stamina}%;background:#7ec850"></i></div>
+  <div class="bar"><i style="width:${h.stats.balance}%;background:#6fb3e0"></i></div>
+  <div class="bar"><i style="width:${h.energy}%;background:#e86a5e"></i></div>
+  <div class="bl"><span>🏃速度 ${h.stats.speed}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
+}
+
+function horseCard(h, extra){
+  const d=document.createElement("div");
+  d.className="card"; d.dataset.id=h.id;
+  d.innerHTML=`<canvas width="180" height="90"></canvas>
+    <div class="nm">${h.emoji} ${h.name}</div>
+    <div class="sp">${h.sp} · ${h.g.legCount} 條腿</div>
+    ${statBars(h)}${extra||""}`;
+  const c=d.querySelector("canvas"), ctx=c.getContext("2d");
+  drawHorse(ctx,90,55,h,0,Math.min(1.1, 1.6/Math.max(h.g.bodyLen,h.g.legLen,h.g.neckLen*0.8)));
+  return d;
+}
+
+// ============ 牧場 ============
+function renderRanch(){
+  const el=$("ranchCards"); el.innerHTML="";
+  horses.forEach(h=>{
+    const card=horseCard(h,
+      `<div class="row" style="margin:6px 0 0">
+        <button class="btn sm" data-feed="${h.id}">🌾 餵食 $20</button>
+        <button class="btn sm gray" data-sell="${h.id}">賣掉 $${sellPrice(h)}</button>
+      </div>`);
+    el.appendChild(card);
+  });
+  el.querySelectorAll("[data-feed]").forEach(b=>b.onclick=e=>{
+    const h=horses.find(x=>x.id==b.dataset.feed);
+    if(money<20) return toast("錢不夠!");
+    if(h.energy>=100) return toast(h.name+" 已經吃飽了");
+    money-=20; h.energy=100; day++;
+    toast("🌾 "+h.name+" 吃飽睡好,體力全滿!");
+    refreshHUD(); renderRanch();
+  });
+  el.querySelectorAll("[data-sell]").forEach(b=>b.onclick=e=>{
+    const h=horses.find(x=>x.id==b.dataset.sell);
+    if(horses.length<=1) return toast("最後一隻馬不能賣!");
+    money+=sellPrice(h); horses=horses.filter(x=>x!==h);
+    toast("💸 賣掉了 "+h.name);
+    refreshHUD(); renderRanch();
+  });
+}
+const sellPrice=h=>Math.round(power(h)*3);
+
+// ============ 抓馬(套索小遊戲)============
+const lc=$("lassoCanvas"), lctx=lc.getContext("2d");
+let wild=null, lassoAnim=null, lassoT=0;
+
+$("btnGoWild").onclick=()=>{
+  if(money<100) return toast("錢不夠出發!");
+  if(horses.length>=8) return toast("牧場滿了(最多 8 隻),先賣掉幾隻吧!");
+  money-=100; day++; refreshHUD();
+  wild={h:makeHorse(), x:-80, dir:1, speed:rnd(1.5,3.2), caught:false};
+  $("btnGoWild").disabled=true; $("btnLasso").disabled=false;
+  if(!lassoAnim) lassoLoop();
+};
+
+$("btnLasso").onclick=()=>{
+  if(!wild||wild.caught) return;
+  $("btnLasso").disabled=true;
+  const cx=lc.width/2;
+  const dist=Math.abs(wild.x-cx);
+  if(dist<70){
+    wild.caught=true;
+    setTimeout(()=>{
+      horses.push(wild.h);
+      toast(`🎉 抓到了 ${wild.h.emoji} ${wild.h.name}(${wild.h.sp})!`);
+      wild=null; $("btnGoWild").disabled=false;
+      refreshHUD(); renderRanch();
+    },700);
+  } else {
+    toast("💨 套索落空,牠跑掉了……");
+    wild=null; $("btnGoWild").disabled=false;
+  }
+};
+
+let lassoLast=0;
+function lassoLoop(ts){
+  lassoAnim=requestAnimationFrame(lassoLoop);
+  const dt = ts ? clamp((ts-lassoLast)/1000,0,0.05) : 1/60;
+  if(ts) lassoLast=ts;
+  lassoT+=dt;
+  const f=dt*60; // 相對 60fps 的倍率,確保不同螢幕更新率速度一致
+  const W=lc.width,H=lc.height;
+  // 背景
+  lctx.fillStyle="#9ecf6a"; lctx.fillRect(0,0,W,H);
+  lctx.fillStyle="#8ec25e";
+  for(let i=0;i<6;i++){ lctx.beginPath(); lctx.ellipse((i*173)%W,(i*97)%H,30,10,0,0,7); lctx.fill(); }
+  // 抓捕圈
+  const cx=W/2;
+  lctx.strokeStyle="rgba(255,210,74,.9)"; lctx.lineWidth=4; lctx.setLineDash([10,8]);
+  lctx.beginPath(); lctx.ellipse(cx,H*0.62,75,26,0,0,7); lctx.stroke(); lctx.setLineDash([]);
+  lctx.fillStyle="#5a4626"; lctx.font="bold 15px sans-serif"; lctx.textAlign="center";
+  lctx.fillText("↓ 等牠進圈再丟套索 ↓",cx,H*0.62-45);
+  if(wild){
+    if(!wild.caught){
+      wild.x+=wild.speed*wild.dir*f;
+      if(wild.x>W+80){wild.x=-80; wild.speed=rnd(1.5,3.2);}
+      if(Math.random()<0.008*f) wild.dir*=-1;
+      if(wild.x<-90) wild.dir=1;
+    }
+    drawHorse(lctx,wild.x,H*0.6,wild.h,lassoT,1);
+    if(wild.caught){
+      lctx.strokeStyle="#c9a15c"; lctx.lineWidth=3;
+      lctx.beginPath(); lctx.ellipse(wild.x,H*0.6-10,40,50,0,0,7); lctx.stroke();
+      lctx.font="30px sans-serif"; lctx.fillText("🎉",wild.x,H*0.3);
+    }
+  } else {
+    lctx.fillStyle="#5a4626"; lctx.font="bold 18px sans-serif";
+    lctx.fillText("按「出發尋找野馬」開始",cx,H*0.4);
+  }
+}
+
+// ============ 配種 ============
+let breedSel=[];
+function renderBreed(){
+  const el=$("breedCards"); el.innerHTML=""; breedSel=[];
+  horses.forEach(h=>{
+    const c=horseCard(h);
+    c.onclick=()=>{
+      if(breedSel.includes(h.id)) breedSel=breedSel.filter(x=>x!==h.id);
+      else { breedSel.push(h.id); if(breedSel.length>2) breedSel.shift(); }
+      el.querySelectorAll(".card").forEach(x=>x.classList.toggle("sel",breedSel.includes(+x.dataset.id)));
+      $("btnBreed").disabled = breedSel.length!==2;
+    };
+    el.appendChild(c);
+  });
+  $("btnBreed").disabled=true;
+}
+$("btnBreed").onclick=()=>{
+  if(money<150) return toast("錢不夠配種!");
+  if(horses.length>=8) return toast("牧場滿了,先賣掉幾隻吧!");
+  const a=horses.find(h=>h.id===breedSel[0]), b=horses.find(h=>h.id===breedSel[1]);
+  money-=150; day++;
+  const foal=breed(a,b);
+  horses.push(foal);
+  refreshHUD(); renderRanch(); renderBreed();
+  const cv=document.createElement("canvas"); cv.width=220; cv.height=110;
+  drawHorse(cv.getContext("2d"),110,65,foal,0,1);
+  overlay(`<h2>🎊 小馬出生了!</h2>
+    <img src="${cv.toDataURL()}" style="background:#87b953;border-radius:10px;width:220px">
+    <p><b>${foal.emoji} ${foal.name}</b>(${foal.sp},${foal.g.legCount} 條腿)<br>
+    ${foal.mutated?`<span style="color:var(--red)">⚡ ${foal.mutated}</span><br>`:""}
+    🏃速度 ${foal.stats.speed} · 💪耐力 ${foal.stats.stamina} · ⚖️平衡 ${foal.stats.balance}</p>
+    <button class="btn" onclick="closeOverlay()">太棒了</button>`);
+};
+
+// ============ 賽馬 ============
+let raceSel=null, race=null, raceAnim=null;
+const rc=$("raceCanvas"), rctx=rc.getContext("2d");
+
+function renderRacePick(){
+  $("racePick").style.display=""; $("raceView").style.display="none";
+  const el=$("raceCards"); el.innerHTML=""; raceSel=null;
+  $("btnRace").disabled=true; $("oddsTag").textContent="賠率 —";
+  horses.forEach(h=>{
+    const c=horseCard(h, h.energy<30?`<div class="sp" style="color:var(--red)">體力不足,先餵食!</div>`:"");
+    c.onclick=()=>{
+      if(h.energy<30) return toast(h.name+" 太累了,先餵食!");
+      raceSel=h;
+      el.querySelectorAll(".card").forEach(x=>x.classList.toggle("sel",+x.dataset.id===h.id));
+      $("btnRace").disabled=false;
+      updateOdds();
+    };
+    el.appendChild(c);
+  });
+}
+
+function makeOpponents(){
+  const p = raceSel?power(raceSel):50;
+  return [0,1,2].map(()=>{
+    const h=makeHorse();
+    // 對手實力接近玩家,比賽才刺激
+    const scale = rnd(0.75,1.25)*p/power(h);
+    h.stats.speed=clamp(Math.round(h.stats.speed*scale),5,100);
+    h.stats.stamina=clamp(Math.round(h.stats.stamina*scale),5,100);
+    return h;
+  });
+}
+let opponents=[];
+function updateOdds(){
+  opponents=makeOpponents();
+  const mine=power(raceSel), all=[mine,...opponents.map(power)];
+  const tot=all.reduce((s,x)=>s+x,0);
+  const prob=mine/tot;
+  raceOdds = clamp(0.85/prob, 1.2, 12);
+  $("oddsTag").textContent="賠率 "+raceOdds.toFixed(1)+" 倍";
+}
+let raceOdds=2;
+
+$("btnRace").onclick=()=>{
+  const bet=Math.floor(+$("betInput").value)||0;
+  if(bet<10) return toast("至少下注 $10!");
+  if(bet>money) return toast("錢不夠!");
+  money-=bet; day++; refreshHUD();
+  startRace(bet);
+};
+
+function startRace(bet){
+  $("racePick").style.display="none"; $("raceView").style.display="";
+  $("btnRaceBack").style.display="none";
+  const lanes=[raceSel,...opponents].map((h,i)=>({
+    h, y:70+i*75, prog:0, energy:h.energy, fallen:0, done:0, finished:false
+  }));
+  race={lanes, bet, t:0, over:false, ranks:[]};
+  if(raceAnim) cancelAnimationFrame(raceAnim);
+  raceLoop();
+}
+
+let raceLast=0;
+function raceLoop(ts){
+  raceAnim=requestAnimationFrame(raceLoop);
+  const dt = ts ? clamp((ts-raceLast)/1000,0,0.05) : 1/60;
+  if(ts) raceLast=ts;
+  const f=dt*60;
+  const W=rc.width,H=rc.height, FINISH=W-90;
+  race.t+=dt;
+  // 更新
+  if(race.t>2 && !race.over){
+    race.lanes.forEach(L=>{
+      if(L.finished) return;
+      if(L.fallen>0){ L.fallen-=dt; return; }
+      const st=L.h.stats;
+      const tired = L.energy<25 ? 0.5 : 1;
+      const v=(st.speed*0.045+rnd(-0.5,0.9))*tired;
+      L.prog+=Math.max(0.3,v)*f;
+      L.energy=Math.max(0,L.energy-(0.06+st.speed*0.0006)*f);
+      // 平衡差 → 翻車
+      if(Math.random() < (100-st.balance)*0.00035*f){
+        L.fallen=rnd(0.8,1.8);
+      }
+      if(L.prog>=FINISH-60){
+        L.finished=true; L.done=race.t; race.ranks.push(L);
+      }
+    });
+    if(race.ranks.length===race.lanes.length && !race.over) endRace();
+  }
+  // 畫面
+  rctx.fillStyle="#9ecf6a"; rctx.fillRect(0,0,W,H);
+  for(let i=0;i<4;i++){
+    rctx.fillStyle=i%2?"#98c964":"#a3d470";
+    rctx.fillRect(0,40+i*75,W,75);
+  }
+  // 終點線
+  for(let i=0;i<10;i++){
+    rctx.fillStyle=i%2?"#fff":"#333";
+    rctx.fillRect(FINISH,40+i*30,12,30);
+  }
+  race.lanes.forEach((L,i)=>{
+    const x=60+L.prog;
+    drawHorse(rctx,Math.min(x,FINISH-30),L.y+35,L.h,L.finished?0:race.t,0.9,L.fallen>0);
+    rctx.fillStyle=i===0?"#ffd24a":"#fff";
+    rctx.font="bold 13px sans-serif"; rctx.textAlign="left";
+    rctx.fillText((i===0?"⭐ ":"")+L.h.emoji+" "+L.h.name+(L.fallen>0?" 💫翻車!":""),10,L.y+8);
+  });
+  // 倒數
+  if(race.t<2 && !race.over){
+    rctx.fillStyle="#0008"; rctx.fillRect(0,0,W,H);
+    rctx.fillStyle="#ffd24a"; rctx.font="bold 80px sans-serif"; rctx.textAlign="center";
+    rctx.fillText(race.t<1?"預備…":"GO!",W/2,H/2+25);
+  }
+}
+
+function endRace(){
+  race.over=true;
+  const mine=race.lanes[0];
+  const placeIdx=race.ranks.indexOf(mine);
+  mine.h.energy=clamp(mine.energy-25,0,100);
+  const placeTxt=["🥇 第一名!","🥈 第二名","🥉 第三名","😵 最後一名"][placeIdx];
+  let txt;
+  if(placeIdx===0){
+    const winAmt=Math.round(race.bet*raceOdds);
+    money+=winAmt;
+    txt=`<h2>${placeTxt}</h2><p>${mine.h.emoji} ${mine.h.name} 贏了!<br>下注 $${race.bet} × 賠率 ${raceOdds.toFixed(1)} = <b style="color:var(--gold)">贏得 $${winAmt}</b></p>`;
+  } else if(placeIdx===1){
+    const back=Math.round(race.bet*0.5);
+    money+=back;
+    txt=`<h2>${placeTxt}</h2><p>差一點!退回一半下注金 $${back}。</p>`;
+  } else {
+    txt=`<h2>${placeTxt}</h2><p>下注的 $${race.bet} 沒了……回去練馬吧!</p>`;
+  }
+  if(money<10 && horses.length>0 && money+sellPrice(horses[0])>=10){
+    txt+=`<p style="color:var(--red);font-size:13px">錢快沒了?可以到牧場賣馬換現金。</p>`;
+  }
+  refreshHUD();
+  setTimeout(()=>{
+    overlay(txt+`<button class="btn" onclick="closeOverlay()">確定</button>`);
+    $("btnRaceBack").style.display="";
+    $("btnRaceBack").onclick=()=>{ cancelAnimationFrame(raceAnim); raceAnim=null; renderRacePick(); renderRanch(); };
+  },600);
+}
+
+// ============ 分頁切換 ============
+document.querySelectorAll("nav button").forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll(".screen").forEach(s=>s.classList.remove("show"));
+    $("s-"+b.dataset.s).classList.add("show");
+    if(b.dataset.s==="breed") renderBreed();
+    if(b.dataset.s==="race" && !race?.over===false){}
+    if(b.dataset.s==="race" && (!race || race.over)) renderRacePick();
+  };
+});
+
+// ============ 開始 ============
+horses.push(makeHorse(null,{sp:"馬",emoji:"🐴"}));
+horses.push(makeHorse());
+refreshHUD(); renderRanch(); lassoLoop();
+</script>
+</body>
+</html>
