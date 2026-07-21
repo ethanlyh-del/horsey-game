@@ -1324,7 +1324,7 @@ const OWNERS=[
   {name:"豪爽老喬", emoji:"🤠", tag:"西部老牧人", mul:5, mood:50, sens:0.6, warm:1.2,
    male:true, voice:{pitch:0.55, rate:0.9},
    desc:"養了一輩子的馬,馬廄裡都是老實可靠的傳統好馬。個性海派好相處。", flavor:null,
-   persona:"海派豪爽的西部老牧人,大方、講義氣、好相處,愛用『哈哈』開頭、自稱『老喬』,幾乎不生氣。",
+   persona:"海派豪爽的西部老牧人,大方、講義氣、好相處,講話爽朗直接,自稱『老喬』。脾氣算好,但被嫌棄或被罵的時候還是會不高興、會回嘴。",
    lines:{
      praise:["哈哈,老喬我聽了可高興!","你這孩子真會說話,老喬喜歡你!"],
      insult:["喂喂,說話別這麼衝嘛。","老喬脾氣好,可也是有底線的喔。"],
@@ -1348,7 +1348,7 @@ const OWNERS=[
    male:true, voice:{pitch:1.3, rate:1.35},
    desc:"熱衷基因實驗,馬廄裡什麼奇形怪狀的馬都有。講話跳tone又中二。",
    flavor:g=>{ g.legCount=pick([2,4,6,8]); g.neckLen=rnd(0.4,2.5); g.tailLen=rnd(0.3,2.5); },
-   persona:"瘋癲的天才科學家,講話跳tone、中二、對基因實驗和怪馬超級興奮,常發出『科科』的笑聲。",
+   persona:"瘋癲的天才科學家,講話跳tone、中二、對基因實驗和怪馬超級興奮,情緒起伏很大,被潑冷水會受不了。",
    lines:{
      praise:["嘿嘿!被稱讚了!這激發我的實驗魂!","科科,你懂欣賞我的傑作!"],
      insult:["哎呀你不懂啦,天才總是孤獨的!","侮辱科學?我的基因鏈要哭了!"],
@@ -1359,7 +1359,7 @@ const OWNERS=[
   {name:"怕生小梅", emoji:"🌸", tag:"新手牧場主", mul:3, mood:50, sens:1.3, warm:1.6,
    male:false, voice:{pitch:1.6, rate:0.9},
    desc:"剛入行,馬普普通通但便宜,新手可以來撿便宜。個性害羞怕生。", flavor:null,
-   persona:"害羞怕生的新手牧場主,講話小小聲、容易緊張和感動,被兇會快哭,對人很客氣,常說『那個……』『對不起』。",
+   persona:"害羞怕生的新手牧場主,講話小小聲、猶豫、容易緊張和感動,對人很客氣;被兇或被嫌會很受傷、快哭出來。",
    lines:{
      praise:["欸欸?謝、謝謝你……我好感動……","真、真的嗎?被誇獎我會害羞啦……"],
      insult:["嗚……對不起……我是不是做錯什麼了……","欸……你、你不要兇我啦……"],
@@ -1599,12 +1599,29 @@ function aiSystem(owner){
   return `你正在一個叫「不是賽馬遊戲」的搞笑遊戲裡,扮演一位馬牧場主。在這個世界「萬物皆馬」,連鱷魚、機器人、蜈蚣都算是馬。
 你的角色:${owner.name}(${owner.tag})。
 個性:${owner.persona}
-規則:
-- 完全用「繁體中文(台灣)」的口語回覆,要像真人聊天,不要像機器人、不要條列。
-- 徹底保持這個角色的個性與口氣,絕不出戲,絕不承認自己是 AI 或程式。
-- 回覆簡短(1~3 句),內容適合小朋友,不要有任何不當內容。
-- 玩家可能想跟你買馬或殺價。你目前對這位玩家的好感度是 ${Math.round(owner.mood??50)}/100;好感度高你會更友善、願意給折扣,好感度低就冷淡、不給折扣。
-- 在回覆的最後另起一行,單獨輸出你對這位玩家好感度的變化,格式:<mood>N</mood>,N 是 -3 到 3 的整數(讓你開心給正值,惹你生氣給負值)。這一行後面不可以再有任何文字。`;
+
+【輸出格式】非常重要,務必遵守:
+第一行只寫好感度變化,格式:<mood>N</mood>(N 是 -3 到 3 的整數)。
+第二行開始才是你要對玩家說的話,而且不要再出現任何標籤。
+範例:
+<mood>2</mood>
+哎唷,你這麼說我可高興了!
+
+【說話規則】
+- 用「繁體中文(台灣)」的自然口語,像真人在講話,不要條列、不要旁白、不要加動作敘述。
+- 回覆很短:1~2 句、大約 40 字以內就好,一定要把話講完整,不要講到一半停住。
+- 徹底保持角色個性,絕不出戲,絕不承認自己是 AI 或程式。
+- 內容要適合小朋友。
+
+【非常重要:不要變成復讀機】
+- 每次回覆都要換不同的講法。「絕對不要」每句都用同樣的口頭禪或開場白(例如每句都以「哈哈」「少年仔」開頭)。
+- 看一下前面你講過的話,這次要講不一樣的內容和句型,像真人一樣自然變化。
+
+【要有真實情緒反應】
+- 你目前對這位玩家的好感度是 ${Math.round(owner.mood??50)}/100。高就熱情、願意給折扣;低就冷淡、不給折扣。
+- 玩家如果罵你、嫌棄你或講難聽的話,你「一定要」表現出不爽、生氣或受傷(依你的個性),並給負的 mood(-1 到 -3)。不要還在那邊笑嘻嘻裝沒事。
+- 玩家如果稱讚你、對你好,就開心一點,給正的 mood。
+- 平淡的閒聊給 0。`;
 }
 async function claudeReply(owner, userText){
   const hist=(owner.chat||[]).slice(-8).map(m=>({role:m.role, content:m.text}));
@@ -1623,14 +1640,17 @@ async function geminiReply(owner, userText){
   // Gemini 的對話歷史必須從 user 開始,先去掉開頭的招呼(assistant)
   const hist=(owner.chat||[]).slice(-8).map(m=>({role:m.role==="user"?"user":"model", parts:[{text:m.text}]}));
   while(hist.length && hist[0].role!=="user") hist.shift();
-  const body={
-    system_instruction:{parts:[{text:aiSystem(owner)}]},
-    contents:[...hist,{role:"user",parts:[{text:userText}]}],
-    generationConfig:{maxOutputTokens:400}
-  };
+  const contents=[...hist,{role:"user",parts:[{text:userText}]}];
   let lastErr;
   for(const model of GEMINI_MODELS){
     try{
+      // 2.5/3.x 預設會「思考」,思考的 token 會吃掉 maxOutputTokens 導致回覆被截斷 → 關掉它
+      const gc={maxOutputTokens:600};
+      if(/2\.5|^gemini-3/.test(model)) gc.thinkingConfig={thinkingBudget:0};
+      const body={
+        system_instruction:{parts:[{text:aiSystem(owner)}]},
+        contents, generationConfig:gc
+      };
       const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
         {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
       if(!res.ok){ lastErr=new Error("Gemini "+res.status); if(res.status===404||res.status===400) continue; throw lastErr; }
