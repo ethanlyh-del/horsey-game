@@ -185,8 +185,8 @@
       </div>
       <!-- 撿大便(沒錢時) -->
       <div id="poopPanel" style="display:none">
-        <p class="hint" style="color:var(--red)">你身上一毛錢都不剩了……賽馬場的馬廄需要有人清理。撿 <b>3 坨大便換 $50</b> 吧!(只有沒錢的時候能撿)</p>
-        <button class="btn" id="btnPoop">💩 撿大便 (+$50)</button>
+        <p class="hint" style="color:var(--red)">你身上一毛錢都不剩了……賽馬場的草地上有 <b>3 坨大便</b>,點一點把它們都撿進推車 🛒,就能換 <b>$50</b>!(只有沒錢的時候能撿)</p>
+        <div id="poopField"></div>
       </div>
     </div>
     <div id="raceView" style="display:none">
@@ -753,21 +753,60 @@ function renderRacePick(){
   $("racePick").style.display=""; $("raceView").style.display="none";
   $("btnLeave").style.display="none"; $("btnRaceBack").style.display="none";
   const broke = money<10;
-  // 沒錢時:只剩撿大便 + 賽程表(戰績還是能看)
-  $("poopPanel").style.display = broke?"":"none";
-  $("raceTabs").style.display  = "";
-  $("tabBet").style.display   = broke?"none":"";
-  $("tabEnter").style.display = broke?"none":"";
-  const showBet   = !broke && raceMode==="bet";
-  const showEnter = !broke && raceMode==="enter";
   const showSched = raceMode==="sched";
-  $("betPanel").style.display  = showBet?"":"none";
-  $("enterPanel").style.display= showEnter?"":"none";
+  const showPoop  = broke && !showSched;   // 沒錢時撿大便,但戰績仍可看
+  $("raceTabs").style.display  = "";
+  $("tabBet").style.display    = broke?"none":"";
+  $("tabEnter").style.display  = broke?"none":"";
+  $("poopPanel").style.display = showPoop?"":"none";
   $("schedPanel").style.display= showSched?"":"none";
+  $("betPanel").style.display  = (!broke && raceMode==="bet")?"":"none";
+  $("enterPanel").style.display= (!broke && raceMode==="enter")?"":"none";
   updateRaceTabs();
   if(showSched){ renderSchedule(); return; }
-  if(broke) return;
+  if(showPoop){ renderPoopField(); return; }
   if(raceMode==="bet") renderBetPanel(); else renderEnterPanel();
+}
+
+// 撿大便小遊戲:草地上點 3 坨大便進推車才有錢
+let poopCollected=0;
+function renderPoopField(){
+  poopCollected=0;
+  const fld=$("poopField");
+  fld.innerHTML="";
+  fld.style.cssText="position:relative;height:280px;border-radius:12px;overflow:hidden;margin-top:8px;background:#7ec24f;background-image:radial-gradient(#6fb544 16%,transparent 17%);background-size:26px 26px";
+  const counter=document.createElement("div");
+  counter.style.cssText="position:absolute;left:8px;top:8px;background:#0007;color:#fff;padding:4px 10px;border-radius:8px;font-size:14px;font-weight:bold;z-index:2";
+  counter.textContent="已撿 0 / 3 坨";
+  fld.appendChild(counter);
+  const cart=document.createElement("div");
+  cart.textContent="🛒";
+  cart.style.cssText="position:absolute;left:50%;bottom:6px;transform:translateX(-50%);font-size:52px";
+  fld.appendChild(cart);
+  for(let i=0;i<3;i++){
+    const x=12+Math.random()*72, y=16+Math.random()*42; // %
+    const p=document.createElement("button");
+    p.textContent="💩";
+    p.style.cssText=`position:absolute;left:${x}%;top:${y}%;font-size:42px;background:none;border:none;cursor:pointer;padding:6px;line-height:1`;
+    p.onclick=()=>{
+      if(p.disabled) return;
+      p.disabled=true;
+      p.style.transition="all .45s ease-in";
+      p.style.left="50%"; p.style.top="calc(100% - 46px)";
+      p.style.transform="translateX(-50%) scale(.4)"; p.style.opacity="0";
+      poopCollected++;
+      counter.textContent=`已撿 ${poopCollected} / 3 坨`;
+      setTimeout(()=>p.remove(),450);
+      if(poopCollected>=3){
+        setTimeout(()=>{
+          money+=50; day++; refreshHUD();
+          overlay(`<h2>💩 撿完啦!</h2><p>3 坨大便都進推車了,馬廄乾淨溜溜!<br>管理員給了你 <b style="color:var(--gold)">$50</b>。<br>拿去下注翻身吧!</p><button class="btn" onclick="closeOverlay()">好</button>`);
+          renderRacePick();
+        },550);
+      }
+    };
+    fld.appendChild(p);
+  }
 }
 
 function renderSchedule(){
@@ -846,13 +885,6 @@ $("btnEnterGo").onclick=()=>{
   money-=t.entry; day++; enterSel.energy=clamp(enterSel.energy-25,0,100);
   refreshHUD();
   startRace({mode:"enter", tier:raceTier, entryHorse:enterSel});
-};
-
-$("btnPoop").onclick=()=>{
-  if(money>=10) return toast("你還有錢,不用撿大便啦!");
-  money+=50; day++; refreshHUD();
-  overlay(`<h2>💩 撿到 3 坨大便</h2><p>你把賽馬場的馬廄清乾淨,管理員給了你 <b style="color:var(--gold)">$50</b>。<br>拿去下注翻身吧!</p><button class="btn" onclick="closeOverlay()">好</button>`);
-  renderRacePick();
 };
 
 function startRace(cfg){
@@ -1277,23 +1309,27 @@ const OWNERS=[
 ];
 let curOwner=0, ownerStock=[];
 
-// 秤重工廠:重量由基因決定(固定,方便小孩計算);每公斤價格每天浮動
+// 秤重工廠:重量與每公斤價都是好計算的整數,最貴一匹不超過 $180
+// 重量 = 20~60 公斤(取整到 10);每公斤價 = $1~$3(整數,每天浮動)→ 最多 60×3=180
 function horseWeight(h){
   const g=h.g;
-  let w = 300*g.bodyLen*g.bodyH + g.legCount*18 + (g.neckLen||1)*20 + (g.tailLen||1)*10;
-  return Math.round(clamp(w,120,1600)/5)*5; // 取整到 5 公斤
+  const w = 20 + (g.bodyLen*g.bodyH)*15;   // 體型愈大愈重
+  return clamp(Math.round(w/10)*10, 20, 60); // 20/30/40/50/60
 }
-function factoryRate(){ return Math.round((1.2+(Math.sin(day*1.3+1)+1)/2*1.6)*10)/10; } // $1.2~$2.8/kg,隨天數浮動
+function factoryRate(){
+  const s=Math.sin(day*12.9898)*43758.5453; // 依天數的偽隨機,看起來會浮動
+  return 1 + Math.floor((s-Math.floor(s))*3); // 1、2 或 3
+}
 
 function renderFactory(){
   $("marketList").style.display="none"; $("ownerView").style.display="none"; $("factoryView").style.display="";
   const rate=factoryRate();
-  $("rateTag").innerHTML=`📅 今天工廠收購價:<b style="color:var(--gold)">$${rate.toFixed(1)} / 公斤</b>`;
+  $("rateTag").innerHTML=`📅 今天工廠收購價:<b style="color:var(--gold)">$${rate} / 公斤</b>`;
   const el=$("factoryCards"); el.innerHTML="";
   if(horses.length===0){ el.innerHTML=`<p class="hint">你還沒有馬可以賣。</p>`; return; }
   horses.forEach(h=>{
     const w=horseWeight(h);
-    const c=horseCard(h, `<div class="sp" style="margin-top:4px">⚖️ 重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate.toFixed(1)}/kg</b> = <b style="color:var(--gold)">? ? ?</b></div>
+    const c=horseCard(h, `<div class="sp" style="margin-top:4px">⚖️ 重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate}/公斤</b> = <b style="color:var(--gold)">? ? ?</b></div>
       <div class="row" style="margin:6px 0 0"><button class="btn sm" data-fsell="${h.id}">⚖️ 賣給工廠</button></div>`);
     el.appendChild(c);
   });
@@ -1304,7 +1340,7 @@ function renderFactory(){
     money+=total; horses=horses.filter(x=>x!==h);
     refreshHUD(); renderFactory(); renderRanch();
     overlay(`<h2>⚖️ 過磅完成!</h2><p>${h.emoji} ${h.name}<br>
-      重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate.toFixed(1)}/kg</b><br>
+      重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate}/公斤</b><br>
       = <b style="color:var(--gold);font-size:24px">$${total.toLocaleString()}</b><br>
       <span class="sp">你算對了嗎?跟牧場主的報價比,哪種賣法比較划算?</span></p>
       <button class="btn" onclick="closeOverlay()">確定</button>`);
