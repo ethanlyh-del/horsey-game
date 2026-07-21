@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>小馬大亨 Horsey!</title>
+<title>不是賽馬遊戲</title>
 <style>
   :root{
     --bg:#2b2118; --panel:#3d2f21; --panel2:#4a3a29; --line:#5e4a33;
@@ -100,7 +100,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>🐴 小馬大亨</h1>
+    <h1>🐴 不是賽馬遊戲</h1>
     <div class="stat">💰 <b id="uiMoney">0</b></div>
     <div class="stat">📅 第 <b id="uiDay">1</b> 天</div>
     <div id="goalbar"><div id="goalfill"></div></div>
@@ -108,18 +108,22 @@
 
   <nav>
     <button data-s="ranch" class="active">🏡 牧場</button>
+    <button data-s="race">🏁 賽馬</button>
+    <button data-s="market">🏇 馬市</button>
     <button data-s="catch">🤠 抓馬</button>
     <button data-s="breed">🧬 配種</button>
-    <button data-s="race">🏁 賽馬</button>
     <button data-s="circus">🎪 馬戲團</button>
     <button data-s="lab">🧪 實驗室</button>
+    <button data-s="know">📖 馬知識</button>
   </nav>
 
   <!-- 牧場 -->
   <section id="s-ranch" class="screen show">
     <h2>我的牧場</h2>
-    <p class="hint">你的伴侶得了重感冒,醫藥費要 <b style="color:var(--gold)">$62,375</b>。靠養馬賽馬賺錢吧!<br>
+    <p class="hint">你的伴侶得了重感冒,醫藥費要 <b style="color:var(--gold)">$62,375</b>。<br>
+    這其實不是一款賽馬遊戲……但你只能靠賽馬賺錢。身上只有 <b>$50</b>、一匹馬都沒有——<b>先去賽馬場下注別人的馬</b>翻本吧!<br>
     馬跑步會消耗體力,記得餵食(每次 $20)。在這個世界,<b>萬物皆馬</b>。</p>
+    <div id="cureBox" style="margin-bottom:10px"></div>
     <div class="cards" id="ranchCards"></div>
     <div class="row" style="margin-top:14px">
       <button class="btn sm gray" id="btnReset">🗑️ 重新開始(清除存檔)</button>
@@ -151,18 +155,37 @@
   <section id="s-race" class="screen">
     <h2>賽馬場</h2>
     <div id="racePick">
-      <p class="hint">選一隻體力夠的馬出賽,再決定下注金額。賠率依你的馬相對於對手的實力而定——馬愈爛,賠率愈高!</p>
-      <div class="cards" id="raceCards"></div>
-      <div class="row">
-        <span>下注:$</span><input type="number" id="betInput" value="50" min="10" step="10">
-        <span class="oddsTag" id="oddsTag">賠率 —</span>
-        <button class="btn" id="btnRace" disabled>🏁 開始比賽!</button>
+      <div class="row" id="raceTabs">
+        <button class="btn sm" id="tabBet">🎫 下注別的馬</button>
+        <button class="btn sm gray" id="tabEnter">🏇 派自己的馬出賽</button>
+      </div>
+      <!-- 下注模式 -->
+      <div id="betPanel">
+        <p class="hint">場上四匹馬,挑一匹你看好的下注。<b>賠率愈高代表牠愈可能輸</b>——賭贏就是賭金 × 賠率!</p>
+        <div class="cards" id="betCards"></div>
+        <div class="row">
+          <span>下注:$</span><input type="number" id="betInput" value="10" min="10" step="10">
+          <button class="btn" id="btnBetGo" disabled>🏁 開始比賽!</button>
+        </div>
+      </div>
+      <!-- 參賽模式 -->
+      <div id="enterPanel" style="display:none">
+        <p class="hint">派<b>自己的馬</b>上場,拿冠軍就有<b>固定獎金</b>(不是賠率)。報名費先扣,沒奪冠就當作贊助賽事了!</p>
+        <div class="row" id="tierRow"></div>
+        <div class="cards" id="enterCards"></div>
+        <div class="row"><button class="btn" id="btnEnterGo" disabled>🏁 報名出賽!</button></div>
+      </div>
+      <!-- 撿大便(沒錢時) -->
+      <div id="poopPanel" style="display:none">
+        <p class="hint" style="color:var(--red)">你身上一毛錢都不剩了……賽馬場的馬廄需要有人清理。撿 <b>3 坨大便換 $50</b> 吧!(只有沒錢的時候能撿)</p>
+        <button class="btn" id="btnPoop">💩 撿大便 (+$50)</button>
       </div>
     </div>
     <div id="raceView" style="display:none">
       <canvas id="raceCanvas" width="860" height="360"></canvas>
       <div class="row">
-        <button class="btn gray" id="btnRaceBack" style="display:none">← 回到選馬</button>
+        <button class="btn" id="btnLeave" style="display:none;background:var(--red);color:#fff">🚪 中途離開賽場</button>
+        <button class="btn gray" id="btnRaceBack" style="display:none">← 回到賽馬場</button>
       </div>
     </div>
   </section>
@@ -195,6 +218,72 @@
     想生出進化小馬?<b>父母雙方都必須是進化馬</b>才行。</p>
     <div class="cards" id="labCards"></div>
   </section>
+
+  <!-- 馬市:其他牧場主 -->
+  <section id="s-market" class="screen">
+    <h2>馬市 · 其他牧場主</h2>
+    <div id="marketList">
+      <p class="hint">拜訪其他牧場主、參觀他們的馬。你可以<b>向他們買馬</b>,也可以<b>把自己的馬賣給他們</b>——賣給牧場主比在自己牧場隨便脫手划算,而且<b style="color:var(--gold)">得過獎盃 🏆 的馬更值錢</b>!</p>
+      <div class="cards" id="ownerCards"></div>
+    </div>
+    <div id="ownerView" style="display:none">
+      <div class="row"><button class="btn gray" id="btnOwnerBack">← 回到馬市</button></div>
+      <h2 id="ownerTitle"></h2>
+      <p class="hint" id="ownerDesc"></p>
+      <h3 style="color:var(--gold);font-size:15px;margin:10px 0 6px">🐴 出售中的馬(向他買)</h3>
+      <div class="cards" id="ownerStock"></div>
+      <h3 style="color:var(--gold);font-size:15px;margin:14px 0 6px">💰 把你的馬賣給他</h3>
+      <div class="cards" id="ownerSell"></div>
+    </div>
+  </section>
+
+  <!-- 馬知識 -->
+  <section id="s-know" class="screen">
+    <h2>📖 馬知識小百科</h2>
+    <p class="hint">遊戲裡萬物皆馬,但現實中的馬其實很有學問。以下都是查證過的真實資料:</p>
+
+    <div style="background:var(--panel2);border-radius:10px;padding:12px;margin-bottom:10px">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:6px">🌾 日常照護</h3>
+      <ul style="font-size:13px;line-height:1.9;padding-left:20px;color:var(--text)">
+        <li>馬是<b>草食動物</b>,主食是牧草或乾草加乾淨飲水。每天約吃<b>體重 2%~2.5%</b> 的乾草,喝 <b>19~57 公升</b>水(天熱或運動後更多)。</li>
+        <li>牠們的消化系統需要大量纖維,最好<b>少量多餐、隨時有草可吃</b>。</li>
+        <li>馬蹄要每 <b>6~8 週</b>請蹄鐵匠(farrier)修一次;每天清蹄、檢查有沒有卡石頭或受傷。</li>
+        <li>每天梳毛可以促進血液循環、順便檢查傷口,也能和馬建立信任感。</li>
+        <li>獸醫一年約看 <b>2 次</b>(春、秋),接種破傷風、狂犬病等疫苗;牙齒一年檢查 1~2 次,必要時要「銼牙」(floating)。</li>
+      </ul>
+    </div>
+
+    <div style="background:var(--panel2);border-radius:10px;padding:12px;margin-bottom:10px">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:6px">🧬 育種與遺傳</h3>
+      <ul style="font-size:13px;line-height:1.9;padding-left:20px;color:var(--text)">
+        <li>母馬懷孕約 <b>11 個月</b>(約 340 天),通常一胎只生<b>一隻小馬</b>(foal)。</li>
+        <li>毛色由<b>成對的基因</b>決定,父母各給一個;<b>顯性</b>基因只要一個就會表現,<b>隱性</b>要湊成兩個才會顯現。</li>
+        <li>兩個基礎基因 <b>Extension(E)</b> 和 <b>Agouti(A)</b> 決定馬是黑色、騮色(bay)還是栗色(chestnut)。</li>
+        <li>例:兩匹帶隱性 Agouti 的騮馬交配,小馬約有 <b>25% 是黑色、75% 是騮色</b>——就像遊戲裡的基因混合與突變。</li>
+      </ul>
+    </div>
+
+    <div style="background:var(--panel2);border-radius:10px;padding:12px;margin-bottom:10px">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:6px">🏛️ 馬的歷史</h3>
+      <ul style="font-size:13px;line-height:1.9;padding-left:20px;color:var(--text)">
+        <li>現代家馬約在 <b>4000 多年前(約公元前 2200 年)</b>起源於西歐亞草原,尤其是<b>伏爾加河—頓河下游</b>一帶,再擴散到全世界。</li>
+        <li>更早在約公元前 3500 年、哈薩克的 <b>Botai 遺址</b>就有圈養、擠奶、戴嚼子的證據;但基因研究顯示牠們<b>不是</b>現代家馬的祖先——現代馬只帶約 <b>2.7%</b> 的 Botai 血統。</li>
+        <li><b>普氏野馬</b>(Przewalski's horse)是世界上唯一「從未被馴化」的真.野馬,原產中亞草原,現在主要生活在蒙古。</li>
+      </ul>
+    </div>
+
+    <div style="background:var(--panel2);border-radius:10px;padding:12px;margin-bottom:10px">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:6px">✨ 冷知識</h3>
+      <ul style="font-size:13px;line-height:1.9;padding-left:20px;color:var(--text)">
+        <li>家馬壽命約 <b>25~30 歲</b>,野外的馬約 15 歲,普氏野馬可活到約 <b>36 歲</b>。</li>
+        <li>馬的身高用「<b>手</b>」(hand)量,1 hand = 4 英吋(約 10.16 公分),量的是<b>肩隆</b>(withers,肩膀最高點)。例:15 hands ≈ 152 公分。</li>
+        <li>成年公馬/去勢馬約有 <b>40~42 顆</b>牙,母馬約 36~40 顆;馬的牙齒一生會<b>持續生長</b>來補償磨損。</li>
+        <li>馬能<b>站著打盹</b>——腿部有「支撐韌帶」能鎖住關節;但要進入深層睡眠時,牠們還是會躺下來。</li>
+      </ul>
+    </div>
+
+    <p class="hint" style="font-size:11px">資料來源:Mad Barn、ASPCA、UC Davis 獸醫遺傳實驗室、Nature/Science 馬類基因研究、Smithsonian National Zoo、維基百科等公開資料整理。</p>
+  </section>
 </div>
 
 <div id="msg"></div>
@@ -204,7 +293,7 @@
 "use strict";
 // ============ 基本狀態 ============
 const GOAL = 62375;
-let money = 500, day = 1, horses = [], nextId = 1;
+let money = 50, day = 1, horses = [], nextId = 1;
 
 const NAMES = ["閃電","馬鈴薯","不是馬","風速","布丁","咖啡","轟隆","小廢","飛毛","嘎嘎",
   "章魚哥","阿嬤","豆花","雷神","慢慢","咕嚕","炸蝦","泥巴","火箭","呆呆"];
@@ -405,14 +494,18 @@ function refreshHUD(){
   $("uiMoney").textContent=money; $("uiDay").textContent=day;
   $("goalfill").style.width=clamp(money/GOAL*100,0,100)+"%";
   save();
-  if(money>=GOAL) win();
 }
 let won=false;
-function win(){
-  if(won)return; won=true;
-  overlay(`<h2>🎉 你成功了!</h2><p>你賺到了 $${money},付清醫藥費,伴侶的感冒終於好了!<br>
-  一共花了 ${day} 天、養了無數隻奇怪的馬。<br><b>萬物皆馬,而你是馬中之王。</b></p>
-  <button class="btn" onclick="closeOverlay()">繼續玩</button>`);
+// 錢夠了不會自動通關,要在牧場按「治病」按鈕
+function cure(){
+  if(won) return;
+  won=true; save();
+  overlay(`<h2>💊 治好了!</h2><p>你付清了 <b style="color:var(--gold)">$${GOAL}</b> 醫藥費,伴侶的重感冒終於痊癒了!❤️<br>
+  你靠著一堆奇形怪狀的馬、賽馬、馬戲團和實驗室,撐過了這一切,一共花了 ${day} 天。<br>
+  <b>這其實根本不是一款賽馬遊戲——這是一個關於愛的故事。</b><br>
+  (可以繼續玩,牧場永遠為你開著。)</p>
+  <button class="btn" onclick="closeOverlay()">❤️</button>`);
+  renderRanch();
 }
 
 function statBars(h){
@@ -429,7 +522,7 @@ function horseCard(h, extra){
   d.className="card"; d.dataset.id=h.id;
   d.innerHTML=`<canvas width="180" height="90"></canvas>
     <div class="nm">${h.emoji} ${h.name}</div>
-    <div class="sp">${h.evo?`<b style="color:var(--gold)">⚡進化種</b> · `:""}${h.sp} · ${h.g.legCount} 條腿</div>
+    <div class="sp">${h.evo?`<b style="color:var(--gold)">⚡進化種</b> · `:""}${h.sp} · ${h.g.legCount} 條腿${h.trophies?` · <b style="color:var(--gold)">🏆×${h.trophies}</b>`:""}</div>
     ${statBars(h)}${extra||""}`;
   const c=d.querySelector("canvas"), ctx=c.getContext("2d");
   drawHorse(ctx,90,55,h,0,Math.min(1.1, 1.6/Math.max(h.g.bodyLen,h.g.legLen,h.g.neckLen*0.8)));
@@ -438,12 +531,26 @@ function horseCard(h, extra){
 
 // ============ 牧場 ============
 function renderRanch(){
+  // 治病按鈕:錢夠了才出現
+  const cb=$("cureBox");
+  if(won){
+    cb.innerHTML=`<div class="hint" style="color:var(--green)">💊 醫藥費已付清,伴侶康復了!❤️</div>`;
+  }else if(money>=GOAL){
+    cb.innerHTML=`<button class="btn" id="btnCure" style="background:var(--green);color:#fff;font-size:16px">💊 幫伴侶付 $${GOAL} 醫藥費、治好感冒!</button>`;
+    $("btnCure").onclick=cure;
+  }else{
+    cb.innerHTML=`<div class="hint">距離醫藥費目標還差 <b style="color:var(--gold)">$${(GOAL-money).toLocaleString()}</b>。</div>`;
+  }
   const el=$("ranchCards"); el.innerHTML="";
+  if(horses.length===0){
+    el.innerHTML=`<p class="hint">你還沒有任何馬。先到 <b>🏁 賽馬</b> 下注別人的馬賺錢,再到 <b>🏇 馬市</b> 買一匹屬於自己的馬吧!</p>`;
+    save(); return;
+  }
   horses.forEach(h=>{
     const card=horseCard(h,
       `<div class="row" style="margin:6px 0 0">
         <button class="btn sm" data-feed="${h.id}">🌾 餵食 $20</button>
-        <button class="btn sm gray" data-sell="${h.id}">賣掉 $${sellPrice(h)}</button>
+        <button class="btn sm gray" data-sell="${h.id}">賤賣 $${sellPrice(h)}</button>
       </div>`);
     el.appendChild(card);
   });
@@ -457,14 +564,19 @@ function renderRanch(){
   });
   el.querySelectorAll("[data-sell]").forEach(b=>b.onclick=e=>{
     const h=horses.find(x=>x.id==b.dataset.sell);
-    if(horses.length<=1) return toast("最後一隻馬不能賣!");
+    if(!confirm(`確定用 $${sellPrice(h)} 賤賣「${h.name}」嗎?拿到馬市賣給牧場主能賣更高價喔!`)) return;
     money+=sellPrice(h); horses=horses.filter(x=>x!==h);
-    toast("💸 賣掉了 "+h.name);
+    toast("💸 賤賣了 "+h.name);
     refreshHUD(); renderRanch();
   });
   save();
 }
-const sellPrice=h=>Math.round(power(h)*3);
+// 自己牧場隨便脫手:價錢很低(鼓勵拿去馬市賣)
+const sellPrice=h=>Math.round(power(h)*1.5 + (h.trophies||0)*150);
+// 賣給牧場主:價錢較高,獎盃大加分
+const marketSellPrice=h=>Math.round(power(h)*4 + (h.trophies||0)*600);
+// 向牧場主買馬:依牧場主的定價倍率
+const marketBuyPrice=(h,mul)=>Math.round(power(h)*mul + (h.trophies||0)*600);
 
 // ============ 抓馬(套索小遊戲)============
 const lc=$("lassoCanvas"), lctx=lc.getContext("2d");
@@ -539,6 +651,11 @@ function lassoLoop(ts){
 let breedSel=[];
 function renderBreed(){
   const el=$("breedCards"); el.innerHTML=""; breedSel=[];
+  $("btnBreed").disabled=true;
+  if(horses.length<2){
+    el.innerHTML=`<p class="hint">配種需要<b>至少 2 匹馬</b>。先到「🏇 馬市」買馬,或「🤠 抓馬」抓野馬吧!</p>`;
+    return;
+  }
   horses.forEach(h=>{
     const c=horseCard(h);
     c.onclick=()=>{
@@ -570,68 +687,137 @@ $("btnBreed").onclick=()=>{
 };
 
 // ============ 賽馬 ============
-let raceSel=null, race=null, raceAnim=null;
 const rc=$("raceCanvas"), rctx=rc.getContext("2d");
+let race=null, raceAnim=null, raceLast=0;
+let raceMode="bet";      // "bet" 下注別的馬 | "enter" 派自己的馬
+let raceTier="normal";   // normal 一般 | champ 總冠軍
+let field=[], odds=[], betSel=null, enterSel=null;
+const TIERS={
+  normal:{name:"一般比賽", entry:25, prize:500},
+  champ: {name:"總冠軍賽", entry:250, prize:2500}
+};
+
+// 產生一場比賽的 4 匹馬。ownHorse 不為 null 時把自己的馬放進去。
+function buildField(ownHorse){
+  const f=[];
+  if(ownHorse) f.push({h:ownHorse, own:true});
+  const base = ownHorse?power(ownHorse):rnd(35,70);
+  for(let i=f.length;i<4;i++){
+    const h=makeHorse();
+    const scale=rnd(0.7,1.3)*base/power(h);
+    h.stats.speed  =clamp(Math.round(h.stats.speed*scale),5,110);
+    h.stats.stamina=clamp(Math.round(h.stats.stamina*scale),5,110);
+    h.stats.balance=clamp(Math.round(h.stats.balance*scale),5,110);
+    f.push({h, own:false});
+  }
+  for(let i=f.length-1;i>0;i--){ const j=rndi(0,i); [f[i],f[j]]=[f[j],f[i]]; } // 洗牌
+  return f;
+}
+function computeOdds(f){
+  const ps=f.map(o=>power(o.h)), tot=ps.reduce((a,b)=>a+b,0);
+  return ps.map(p=>clamp(0.9/(p/tot),1.2,15));
+}
+
+function updateRaceTabs(){
+  $("tabBet").className="btn sm"+(raceMode==="bet"?"":" gray");
+  $("tabEnter").className="btn sm"+(raceMode==="enter"?"":" gray");
+}
+$("tabBet").onclick=()=>{ raceMode="bet"; renderRacePick(); };
+$("tabEnter").onclick=()=>{ raceMode="enter"; renderRacePick(); };
 
 function renderRacePick(){
   $("racePick").style.display=""; $("raceView").style.display="none";
-  const el=$("raceCards"); el.innerHTML=""; raceSel=null;
-  $("btnRace").disabled=true; $("oddsTag").textContent="賠率 —";
-  horses.forEach(h=>{
-    const c=horseCard(h, h.energy<30?`<div class="sp" style="color:var(--red)">體力不足,先餵食!</div>`:"");
+  $("btnLeave").style.display="none"; $("btnRaceBack").style.display="none";
+  const broke = money<10;
+  $("poopPanel").style.display = broke?"":"none";
+  $("raceTabs").style.display  = broke?"none":"";
+  $("betPanel").style.display  = (!broke && raceMode==="bet")?"":"none";
+  $("enterPanel").style.display= (!broke && raceMode==="enter")?"":"none";
+  if(broke) return;
+  updateRaceTabs();
+  if(raceMode==="bet") renderBetPanel(); else renderEnterPanel();
+}
+
+function renderBetPanel(){
+  field=buildField(null); odds=computeOdds(field); betSel=null;
+  $("btnBetGo").disabled=true;
+  const el=$("betCards"); el.innerHTML="";
+  field.forEach((o,i)=>{
+    const c=horseCard(o.h, `<div class="sp" style="margin-top:4px">賠率 <b style="color:var(--gold)">${odds[i].toFixed(1)} 倍</b></div>`);
     c.onclick=()=>{
-      if(h.energy<30) return toast(h.name+" 太累了,先餵食!");
-      raceSel=h;
-      el.querySelectorAll(".card").forEach(x=>x.classList.toggle("sel",+x.dataset.id===h.id));
-      $("btnRace").disabled=false;
-      updateOdds();
+      betSel=i;
+      el.querySelectorAll(".card").forEach((x,j)=>x.classList.toggle("sel",j===i));
+      $("btnBetGo").disabled=false;
     };
     el.appendChild(c);
   });
 }
-
-function makeOpponents(){
-  const p = raceSel?power(raceSel):50;
-  return [0,1,2].map(()=>{
-    const h=makeHorse();
-    // 對手實力接近玩家,比賽才刺激
-    const scale = rnd(0.75,1.25)*p/power(h);
-    h.stats.speed=clamp(Math.round(h.stats.speed*scale),5,100);
-    h.stats.stamina=clamp(Math.round(h.stats.stamina*scale),5,100);
-    return h;
-  });
-}
-let opponents=[];
-function updateOdds(){
-  opponents=makeOpponents();
-  const mine=power(raceSel), all=[mine,...opponents.map(power)];
-  const tot=all.reduce((s,x)=>s+x,0);
-  const prob=mine/tot;
-  raceOdds = clamp(0.85/prob, 1.2, 12);
-  $("oddsTag").textContent="賠率 "+raceOdds.toFixed(1)+" 倍";
-}
-let raceOdds=2;
-
-$("btnRace").onclick=()=>{
+$("btnBetGo").onclick=()=>{
   const bet=Math.floor(+$("betInput").value)||0;
+  if(betSel===null) return toast("先選一匹馬下注!");
   if(bet<10) return toast("至少下注 $10!");
   if(bet>money) return toast("錢不夠!");
   money-=bet; day++; refreshHUD();
-  startRace(bet);
+  startRace({mode:"bet", bet, myIdx:betSel, odds:odds[betSel]});
 };
 
-function startRace(bet){
-  $("racePick").style.display="none"; $("raceView").style.display="";
-  $("btnRaceBack").style.display="none";
-  const lanes=[raceSel,...opponents].map((h,i)=>({
-    h, y:70+i*75, prog:0, energy:h.energy, fallen:0, done:0, finished:false
+function renderEnterPanel(){
+  enterSel=null; $("btnEnterGo").disabled=true;
+  const tr=$("tierRow"); tr.innerHTML="";
+  Object.entries(TIERS).forEach(([k,t])=>{
+    const b=document.createElement("button");
+    b.className="btn sm"+(raceTier===k?"":" gray");
+    b.innerHTML=`${t.name}<br><span style="font-size:11px">報名$${t.entry}·冠軍$${t.prize}</span>`;
+    b.onclick=()=>{ raceTier=k; renderEnterPanel(); };
+    tr.appendChild(b);
+  });
+  const el=$("enterCards"); el.innerHTML="";
+  if(horses.length===0){
+    el.innerHTML=`<p class="hint">你還沒有馬。先用「🎫 下注別的馬」賺錢,再到「🏇 馬市」買一匹馬吧!</p>`;
+    return;
+  }
+  horses.forEach(h=>{
+    const low=h.energy<30;
+    const c=horseCard(h, low?`<div class="sp" style="color:var(--red)">體力不足,先餵食!</div>`:"");
+    c.onclick=()=>{
+      if(low) return toast(h.name+" 太累了,先餵食!");
+      enterSel=h;
+      el.querySelectorAll(".card").forEach(x=>x.classList.toggle("sel",+x.dataset.id===h.id));
+      $("btnEnterGo").disabled=false;
+    };
+    el.appendChild(c);
+  });
+}
+$("btnEnterGo").onclick=()=>{
+  if(!enterSel) return toast("先選一匹自己的馬!");
+  const t=TIERS[raceTier];
+  if(money<t.entry) return toast("報名費不夠!需要 $"+t.entry);
+  money-=t.entry; day++; enterSel.energy=clamp(enterSel.energy-25,0,100);
+  refreshHUD();
+  startRace({mode:"enter", tier:raceTier, entryHorse:enterSel});
+};
+
+$("btnPoop").onclick=()=>{
+  if(money>=10) return toast("你還有錢,不用撿大便啦!");
+  money+=50; day++; refreshHUD();
+  overlay(`<h2>💩 撿到 3 坨大便</h2><p>你把賽馬場的馬廄清乾淨,管理員給了你 <b style="color:var(--gold)">$50</b>。<br>拿去下注翻身吧!</p><button class="btn" onclick="closeOverlay()">好</button>`);
+  renderRacePick();
+};
+
+function startRace(cfg){
+  const f = cfg.mode==="enter" ? buildField(cfg.entryHorse) : field;
+  const lanes=f.map((o,i)=>({
+    h:o.h, own:o.own, y:60+i*72, prog:0, energy:o.h.energy, fallen:0, down:false, finished:false
   }));
-  race={lanes, bet, t:0, over:false, ranks:[]};
+  const myLane = cfg.mode==="bet" ? lanes[cfg.myIdx] : lanes.find(L=>L.own);
+  race={lanes, myLane, cfg, t:0, over:false, settled:false, ranks:[]};
+  $("racePick").style.display="none"; $("raceView").style.display="";
+  $("btnRaceBack").style.display="none"; $("btnLeave").style.display="";
+  raceLast=0;
   if(raceAnim) cancelAnimationFrame(raceAnim);
   raceLoop();
 }
 
-let raceLast=0;
 function raceLoop(ts){
   raceAnim=requestAnimationFrame(raceLoop);
   const dt = ts ? clamp((ts-raceLast)/1000,0,0.05) : 1/60;
@@ -639,45 +825,43 @@ function raceLoop(ts){
   const f=dt*60;
   const W=rc.width,H=rc.height, FINISH=W-90;
   race.t+=dt;
-  // 更新
   if(race.t>2 && !race.over){
     race.lanes.forEach(L=>{
-      if(L.finished) return;
-      if(L.fallen>0){ L.fallen-=dt; return; }
+      if(L.finished||L.down) return;
+      if(L.fallen>0){ L.fallen-=dt; return; } // 暫時跌倒,還會站起來
       const st=L.h.stats;
       const tired = L.energy<25 ? 0.5 : 1;
       const v=(st.speed*0.045+rnd(-0.5,0.9))*tired;
       L.prog+=Math.max(0.3,v)*f;
       L.energy=Math.max(0,L.energy-(0.06+st.speed*0.0006)*f);
-      // 平衡差 → 翻車
+      // 平衡差 → 跌倒;跌倒後有 25% 機率再也站不起來
       if(Math.random() < (100-st.balance)*0.00035*f){
-        L.fallen=rnd(0.8,1.8);
+        if(Math.random()<0.25) L.down=true;
+        else L.fallen=rnd(0.8,1.8);
       }
-      if(L.prog>=FINISH-60){
-        L.finished=true; L.done=race.t; race.ranks.push(L);
-      }
+      if(L.prog>=FINISH-60){ L.finished=true; L.done=race.t; race.ranks.push(L); }
     });
-    if(race.ranks.length===race.lanes.length && !race.over) endRace();
+    // 沒有還能跑的馬了 → 結束(未完賽的倒地馬,依離終點遠近補名次)
+    const active=race.lanes.filter(L=>!L.finished && !L.down);
+    if(!race.over && active.length===0){
+      race.lanes.filter(L=>!L.finished).sort((a,b)=>b.prog-a.prog)
+        .forEach(L=>{ L.finished=true; race.ranks.push(L); });
+      endRace(true);
+    } else if(!race.over && race.ranks.length===race.lanes.length){
+      endRace(false);
+    }
   }
   // 畫面
   rctx.fillStyle="#9ecf6a"; rctx.fillRect(0,0,W,H);
-  for(let i=0;i<4;i++){
-    rctx.fillStyle=i%2?"#98c964":"#a3d470";
-    rctx.fillRect(0,40+i*75,W,75);
-  }
-  // 終點線
-  for(let i=0;i<10;i++){
-    rctx.fillStyle=i%2?"#fff":"#333";
-    rctx.fillRect(FINISH,40+i*30,12,30);
-  }
-  race.lanes.forEach((L,i)=>{
-    const x=60+L.prog;
-    drawHorse(rctx,Math.min(x,FINISH-30),L.y+35,L.h,L.finished?0:race.t,0.9,L.fallen>0);
-    rctx.fillStyle=i===0?"#ffd24a":"#fff";
+  for(let i=0;i<4;i++){ rctx.fillStyle=i%2?"#98c964":"#a3d470"; rctx.fillRect(0,36+i*72,W,72); }
+  for(let i=0;i<10;i++){ rctx.fillStyle=i%2?"#fff":"#333"; rctx.fillRect(FINISH,36+i*30,12,30); }
+  race.lanes.forEach(L=>{
+    const x=60+L.prog, mine=(L===race.myLane);
+    drawHorse(rctx,Math.min(x,FINISH-30),L.y+34,L.h,(L.finished||L.down)?0:race.t,0.85,L.fallen>0||L.down);
+    rctx.fillStyle=mine?"#ffd24a":"#fff";
     rctx.font="bold 13px sans-serif"; rctx.textAlign="left";
-    rctx.fillText((i===0?"⭐ ":"")+L.h.emoji+" "+L.h.name+(L.fallen>0?" 💫翻車!":""),10,L.y+8);
+    rctx.fillText((mine?"⭐ ":"")+L.h.emoji+" "+L.h.name+(L.down?" ❌倒地不起":L.fallen>0?" 💫跌倒":""),10,L.y+6);
   });
-  // 倒數
   if(race.t<2 && !race.over){
     rctx.fillStyle="#0008"; rctx.fillRect(0,0,W,H);
     rctx.fillStyle="#ffd24a"; rctx.font="bold 80px sans-serif"; rctx.textAlign="center";
@@ -685,33 +869,45 @@ function raceLoop(ts){
   }
 }
 
-function endRace(){
+// 玩家中途離開
+$("btnLeave").onclick=()=>{
+  if(!race||race.over) return;
   race.over=true;
-  const mine=race.lanes[0];
-  const placeIdx=race.ranks.indexOf(mine);
-  mine.h.energy=clamp(mine.energy-25,0,100);
-  const placeTxt=["🥇 第一名!","🥈 第二名","🥉 第三名","😵 最後一名"][placeIdx];
-  let txt;
-  if(placeIdx===0){
-    const winAmt=Math.round(race.bet*raceOdds);
-    money+=winAmt;
-    txt=`<h2>${placeTxt}</h2><p>${mine.h.emoji} ${mine.h.name} 贏了!<br>下注 $${race.bet} × 賠率 ${raceOdds.toFixed(1)} = <b style="color:var(--gold)">贏得 $${winAmt}</b></p>`;
-  } else if(placeIdx===1){
-    const back=Math.round(race.bet*0.5);
-    money+=back;
-    txt=`<h2>${placeTxt}</h2><p>差一點!退回一半下注金 $${back}。</p>`;
+  settleRace(true);
+};
+
+function endRace(allDown){ race.over=true; settleRace(false); }
+
+function settleRace(leftEarly){
+  if(race.settled) return; race.settled=true;
+  cancelAnimationFrame(raceAnim); raceAnim=null;
+  const my=race.myLane, cfg=race.cfg;
+  const confirmedWin = my.finished && race.ranks[0]===my; // 我的馬已完賽且是第一
+  const myWon = race.ranks[0]===my;
+  let txt="";
+  if(leftEarly && !confirmedWin){
+    txt=`<h2>🚪 你離開了賽場</h2><p>離開時 ${my.h.emoji}${my.h.name} 還沒<b>確定奪冠</b>,${cfg.mode==="bet"?"賭金":"報名費"}就這樣飛了……<br><span class="sp">要等自己的馬確定第一名衝線,離開才拿得到獎金!</span></p>`;
+  } else if(myWon){
+    if(cfg.mode==="bet"){
+      const got=Math.round(cfg.bet*cfg.odds); money+=got;
+      txt=`<h2>🥇 賭中了!</h2><p>${my.h.emoji}${my.h.name} 奪冠!<br>$${cfg.bet} × ${cfg.odds.toFixed(1)} = <b style="color:var(--gold)">贏得 $${got}</b></p>`;
+    }else{
+      const t=TIERS[cfg.tier], tro=(cfg.tier==="champ"?2:1); money+=t.prize;
+      my.h.trophies=(my.h.trophies||0)+tro;
+      txt=`<h2>🏆 冠軍!</h2><p>${my.h.emoji}${my.h.name} 拿下${t.name}冠軍!<br>固定獎金 <b style="color:var(--gold)">$${t.prize}</b> 入袋!<br>🏆 獎盃 +${tro}(牠在馬市能賣更高價)</p>`;
+    }
   } else {
-    txt=`<h2>${placeTxt}</h2><p>下注的 $${race.bet} 沒了……回去練馬吧!</p>`;
+    const place=race.ranks.indexOf(my)+1;
+    txt=`<h2>😵 沒有奪冠</h2><p>${my.h.emoji}${my.h.name} 跑了第 ${place||"—"} 名。<br>${cfg.mode==="bet"?"賭金":"報名費"}拿不回來了,再接再厲!</p>`;
   }
-  if(money<10 && horses.length>0 && money+sellPrice(horses[0])>=10){
-    txt+=`<p style="color:var(--red);font-size:13px">錢快沒了?可以到牧場賣馬換現金。</p>`;
-  }
-  refreshHUD();
+  refreshHUD(); renderRanch();
+  if(money<10) txt+=`<p style="color:var(--red);font-size:13px">沒錢了?回賽馬場撿大便可以換 $50。</p>`;
   setTimeout(()=>{
     overlay(txt+`<button class="btn" onclick="closeOverlay()">確定</button>`);
+    $("btnLeave").style.display="none";
     $("btnRaceBack").style.display="";
-    $("btnRaceBack").onclick=()=>{ cancelAnimationFrame(raceAnim); raceAnim=null; renderRacePick(); renderRanch(); };
-  },600);
+    $("btnRaceBack").onclick=()=>{ cancelAnimationFrame(raceAnim); raceAnim=null; renderRacePick(); };
+  }, leftEarly?60:600);
 }
 
 // ============ 馬戲團 ============
@@ -763,6 +959,10 @@ function pickCircusHorse(ch){
   $("circusList").style.display="none"; $("circusPick").style.display="";
   $("circusPickHint").innerHTML=`<b>${ch.emoji} ${ch.name}</b>——${ch.desc}<br>${ch.build}。選一隻馬上場(消耗 20 體力):`;
   const el=$("circusHorses"); el.innerHTML="";
+  if(horses.length===0){
+    el.innerHTML=`<p class="hint">你還沒有馬。先賺錢買一匹馬再來挑戰吧!</p>`;
+    return;
+  }
   horses.forEach(h=>{
     const prob=Math.round(ch.fit(h));
     const done=!!(h.circusDone&&h.circusDone[ch.id]);
@@ -960,6 +1160,10 @@ const EVO_SPECIES=[
 ];
 function renderLab(){
   const el=$("labCards"); el.innerHTML="";
+  if(horses.length===0){
+    el.innerHTML=`<p class="hint">你還沒有馬可以進化。先賺錢買一匹馬吧!</p>`;
+    return;
+  }
   horses.forEach(h=>{
     const c=horseCard(h, h.evo
       ?`<div class="sp" style="margin-top:4px;color:var(--gold)">⚡ 已是進化馬,無法再進化</div>`
@@ -988,6 +1192,97 @@ function renderLab(){
   });
 }
 
+// ============ 馬市:其他牧場主 ============
+const OWNERS=[
+  {name:"老喬",   emoji:"🤠", tag:"西部老牧人",   mul:5,
+   desc:"養了一輩子的馬,馬廄裡都是老實可靠的傳統好馬。", flavor:null},
+  {name:"薇薇安", emoji:"👑", tag:"貴族育馬師",   mul:7,
+   desc:"只養血統高貴、腿長跑得快的名駒,價格自然也高。",
+   flavor:g=>{ g.legLen=rnd(1.3,1.9); g.bodyLen=rnd(0.7,1); }},
+  {name:"阿肯",   emoji:"🔬", tag:"瘋狂科學家",   mul:5,
+   desc:"熱衷基因實驗,馬廄裡什麼奇形怪狀的馬都有。",
+   flavor:g=>{ g.legCount=pick([2,4,6,8]); g.neckLen=rnd(0.4,2.5); g.tailLen=rnd(0.3,2.5); }},
+  {name:"小梅",   emoji:"🌸", tag:"新手牧場主",   mul:3,
+   desc:"剛入行,馬普普通通但便宜,新手可以來撿便宜。", flavor:null},
+  {name:"巴克",   emoji:"💪", tag:"重挽馬大隊",   mul:5,
+   desc:"專養高大粗壯、耐力十足的重挽馬,拉車一絕。",
+   flavor:g=>{ g.bodyLen=rnd(1.3,2); g.bodyH=rnd(1.2,1.8); g.legLen=rnd(0.6,1); }},
+  {name:"露娜",   emoji:"🌙", tag:"神秘收藏家",   mul:8,
+   desc:"專門收藏稀有品種,偶爾有難得一見的怪馬,但要價不菲。",
+   flavor:g=>{ g.hornType=pick(["antler","curl","none"]); g.earLen=rnd(0.5,3); g.tailLen=rnd(0.3,2.8); }}
+];
+let curOwner=0, ownerStock=[];
+
+function renderMarket(){
+  $("marketList").style.display=""; $("ownerView").style.display="none";
+  const el=$("ownerCards"); el.innerHTML="";
+  OWNERS.forEach((o,i)=>{
+    const d=document.createElement("div");
+    d.className="card";
+    d.innerHTML=`<div style="font-size:42px;text-align:center;padding:8px">${o.emoji}</div>
+      <div class="nm">${o.name}</div><div class="sp">${o.tag}</div>
+      <div class="sp" style="margin-top:4px">${o.desc}</div>
+      <div class="row" style="margin:8px 0 0"><button class="btn sm">🚪 參觀牧場</button></div>`;
+    d.querySelector("button").onclick=()=>openOwner(i);
+    el.appendChild(d);
+  });
+}
+$("btnOwnerBack").onclick=renderMarket;
+
+function openOwner(i){
+  curOwner=i; const o=OWNERS[i];
+  $("marketList").style.display="none"; $("ownerView").style.display="";
+  $("ownerTitle").textContent=`${o.emoji} ${o.name}(${o.tag})`;
+  $("ownerDesc").textContent=o.desc;
+  ownerStock=[];
+  const n=rndi(3,4);
+  for(let k=0;k<n;k++){
+    const h=makeHorse();
+    if(o.flavor){ o.flavor(h.g); h.stats=calcStats(h.g,h.evo); }
+    if(Math.random()<0.3) h.trophies=rndi(1,2); // 偶爾有得過獎的馬
+    ownerStock.push(h);
+  }
+  renderOwnerStock(); renderOwnerSell();
+}
+
+function renderOwnerStock(){
+  const o=OWNERS[curOwner], el=$("ownerStock"); el.innerHTML="";
+  if(ownerStock.length===0){ el.innerHTML=`<p class="hint">這位牧場主的馬都被買光了。</p>`; return; }
+  ownerStock.forEach(h=>{
+    const price=marketBuyPrice(h,o.mul);
+    const c=horseCard(h,`<div class="row" style="margin:6px 0 0"><button class="btn sm" data-buy="${h.id}">買下 $${price.toLocaleString()}</button></div>`);
+    el.appendChild(c);
+  });
+  el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
+    const h=ownerStock.find(x=>x.id==b.dataset.buy);
+    const price=marketBuyPrice(h,o.mul);
+    if(money<price) return toast("錢不夠!這匹馬要 $"+price.toLocaleString());
+    if(horses.length>=8) return toast("你的牧場滿了(最多 8 隻)!");
+    money-=price; day++; horses.push(h);
+    ownerStock=ownerStock.filter(x=>x!==h);
+    toast(`🐴 買下了 ${h.name}!`);
+    refreshHUD(); renderOwnerStock(); renderOwnerSell(); renderRanch();
+  });
+}
+
+function renderOwnerSell(){
+  const el=$("ownerSell"); el.innerHTML="";
+  if(horses.length===0){ el.innerHTML=`<p class="hint">你還沒有馬可以賣。</p>`; return; }
+  horses.forEach(h=>{
+    const price=marketSellPrice(h);
+    const c=horseCard(h,`<div class="row" style="margin:6px 0 0"><button class="btn sm gray" data-msell="${h.id}">賣給他 $${price.toLocaleString()}${h.trophies?` 🏆`:""}</button></div>`);
+    el.appendChild(c);
+  });
+  el.querySelectorAll("[data-msell]").forEach(b=>b.onclick=()=>{
+    const h=horses.find(x=>x.id==b.dataset.msell);
+    const price=marketSellPrice(h);
+    if(!confirm(`把「${h.name}」賣給 ${OWNERS[curOwner].name},得 $${price.toLocaleString()}?`)) return;
+    money+=price; horses=horses.filter(x=>x!==h);
+    toast(`💰 賣掉了 ${h.name},得 $${price.toLocaleString()}`);
+    refreshHUD(); renderOwnerSell(); renderRanch();
+  });
+}
+
 // ============ 分頁切換 ============
 document.querySelectorAll("nav button").forEach(b=>{
   b.onclick=()=>{
@@ -995,10 +1290,12 @@ document.querySelectorAll("nav button").forEach(b=>{
     b.classList.add("active");
     document.querySelectorAll(".screen").forEach(s=>s.classList.remove("show"));
     $("s-"+b.dataset.s).classList.add("show");
+    if(b.dataset.s==="ranch") renderRanch();
     if(b.dataset.s==="breed") renderBreed();
     if(b.dataset.s==="race" && (!race || race.over)) renderRacePick();
     if(b.dataset.s==="circus") renderCircus();
     if(b.dataset.s==="lab") renderLab();
+    if(b.dataset.s==="market") renderMarket();
   };
 });
 
@@ -1012,19 +1309,17 @@ $("btnReset").onclick=()=>{
 let loaded=false;
 try{
   const s=JSON.parse(localStorage.getItem(SAVE_KEY));
-  if(s && Array.isArray(s.horses) && s.horses.length && typeof s.money==="number"){
+  if(s && Array.isArray(s.horses) && typeof s.money==="number"){
     money=s.money; day=s.day||1; horses=s.horses; nextId=s.nextId||1000; won=!!s.won;
     ribbons=s.ribbons||{};
-    // 舊存檔的馬補上新基因欄位
+    // 舊存檔的馬補上新基因/獎盃欄位
     horses.forEach(h=>{ const g=h.g;
-      g.earLen??=1; g.tailLen??=1; g.hornType??="none"; g.hornSize??=1; });
+      g.earLen??=1; g.tailLen??=1; g.hornType??="none"; g.hornSize??=1;
+      h.trophies=h.trophies||0; });
     loaded=true;
   }
 }catch(e){}
-if(!loaded){
-  horses.push(makeHorse(null,{sp:"馬",emoji:"🐴"}));
-  horses.push(makeHorse());
-}
+// 新遊戲:$50、沒有任何馬——只能先去賽馬場下注別人的馬賺錢
 refreshHUD(); renderRanch(); lassoLoop();
 if(loaded) toast("📂 已載入存檔:第 "+day+" 天,$"+money);
 </script>
