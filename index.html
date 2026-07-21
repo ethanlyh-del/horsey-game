@@ -95,6 +95,18 @@
     width:100px; padding:8px; font-size:15px; border-radius:8px;
     border:2px solid var(--line); background:#241b12; color:var(--text); font-family:inherit;
   }
+  input[type=text],input[type=password]{
+    padding:9px; font-size:15px; border-radius:8px;
+    border:2px solid var(--line); background:#241b12; color:var(--text); font-family:inherit;
+  }
+  #chatLog{
+    background:#241b12; border:1px solid var(--line); border-radius:10px;
+    padding:10px; height:210px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;
+  }
+  .bub{max-width:82%; padding:7px 11px; border-radius:12px; font-size:14px; line-height:1.55; white-space:pre-wrap; word-break:break-word;}
+  .bub.you{align-self:flex-end; background:var(--gold); color:#3a2c14; border-bottom-right-radius:3px;}
+  .bub.owner{align-self:flex-start; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-bottom-left-radius:3px;}
+  .bub.owner.typing{opacity:.6; font-style:italic;}
 </style>
 </head>
 <body>
@@ -246,6 +258,23 @@
       <div class="row"><button class="btn gray" id="btnOwnerBack">← 回到馬市</button></div>
       <h2 id="ownerTitle"></h2>
       <p class="hint" id="ownerDesc"></p>
+      <div id="ownerMood" style="margin-bottom:8px"></div>
+      <!-- 跟牧場主聊天 -->
+      <div id="chatBox" style="margin-bottom:12px">
+        <div class="row" style="justify-content:space-between;margin:0 0 6px">
+          <span id="chatMode" class="sp"></span>
+          <span style="display:flex;gap:6px">
+            <button class="btn sm gray" id="btnVoice">🔊 語音:開</button>
+            <button class="btn sm gray" id="btnAISettings">⚙️ AI</button>
+          </span>
+        </div>
+        <div id="chatLog"></div>
+        <div class="row" style="margin-top:6px">
+          <input id="chatInput" type="text" placeholder="跟牧場主說點什麼…" maxlength="120" style="flex:1;min-width:0">
+          <button class="btn" id="btnSend">送出</button>
+        </div>
+        <div class="sp" style="margin-top:4px">💡 聊得她開心會給你折扣,惹她生氣就不給了!</div>
+      </div>
       <h3 style="color:var(--gold);font-size:15px;margin:10px 0 6px">🐴 出售中的馬(向他買)</h3>
       <div class="cards" id="ownerStock"></div>
       <h3 style="color:var(--gold);font-size:15px;margin:14px 0 6px">💰 把你的馬賣給他</h3>
@@ -503,7 +532,8 @@ window.closeOverlay=()=>$("overlay").classList.remove("on");
 const SAVE_KEY="horsey-save-v1";
 function save(){
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won,ribbons,raceLog,trophyBoard}));
+    const ownerMoods = (typeof OWNERS!=="undefined")?OWNERS.map(o=>o.mood??50):undefined;
+    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won,ribbons,raceLog,trophyBoard,ownerMoods}));
   }catch(e){} // 無痕模式等情況存不了就算了,不影響遊戲
 }
 function refreshHUD(){
@@ -1290,24 +1320,78 @@ function renderLab(){
 
 // ============ 馬市:其他牧場主 ============
 const OWNERS=[
-  {name:"老喬",   emoji:"🤠", tag:"西部老牧人",   mul:5,
-   desc:"養了一輩子的馬,馬廄裡都是老實可靠的傳統好馬。", flavor:null},
-  {name:"薇薇安", emoji:"👑", tag:"貴族育馬師",   mul:7,
-   desc:"只養血統高貴、腿長跑得快的名駒,價格自然也高。",
-   flavor:g=>{ g.legLen=rnd(1.3,1.9); g.bodyLen=rnd(0.7,1); }},
-  {name:"阿肯",   emoji:"🔬", tag:"瘋狂科學家",   mul:5,
-   desc:"熱衷基因實驗,馬廄裡什麼奇形怪狀的馬都有。",
-   flavor:g=>{ g.legCount=pick([2,4,6,8]); g.neckLen=rnd(0.4,2.5); g.tailLen=rnd(0.3,2.5); }},
-  {name:"小梅",   emoji:"🌸", tag:"新手牧場主",   mul:3,
-   desc:"剛入行,馬普普通通但便宜,新手可以來撿便宜。", flavor:null},
-  {name:"巴克",   emoji:"💪", tag:"重挽馬大隊",   mul:5,
-   desc:"專養高大粗壯、耐力十足的重挽馬,拉車一絕。",
-   flavor:g=>{ g.bodyLen=rnd(1.3,2); g.bodyH=rnd(1.2,1.8); g.legLen=rnd(0.6,1); }},
-  {name:"露娜",   emoji:"🌙", tag:"神秘收藏家",   mul:8,
-   desc:"專門收藏稀有品種,偶爾有難得一見的怪馬,但要價不菲。",
-   flavor:g=>{ g.hornType=pick(["antler","curl","none"]); g.earLen=rnd(0.5,3); g.tailLen=rnd(0.3,2.8); }}
+  {name:"豪爽老喬", emoji:"🤠", tag:"西部老牧人", mul:5, mood:50, sens:0.6, warm:1.2,
+   voice:{pitch:0.7, rate:0.95},
+   desc:"養了一輩子的馬,馬廄裡都是老實可靠的傳統好馬。個性海派好相處。", flavor:null,
+   persona:"海派豪爽的西部老牧人,大方、講義氣、好相處,愛用『哈哈』開頭、自稱『老喬』,幾乎不生氣。",
+   lines:{
+     praise:["哈哈,老喬我聽了可高興!","你這孩子真會說話,老喬喜歡你!"],
+     insult:["喂喂,說話別這麼衝嘛。","老喬脾氣好,可也是有底線的喔。"],
+     bargain:["爽快!喜歡就算你便宜點,老喬不差這幾塊!","殺價嘛,老交情了,好說好說!"],
+     greet:["嘿!歡迎來我的牧場,隨便看!","來啦來啦,想找匹好馬?"],
+     horse:["我這的馬都老實可靠,挑一匹準沒錯!","要跑得快的還是耐操的?老喬幫你參謀。"],
+     default:["哈哈,說得好!來,喝杯茶再看馬。","牧場的日子啊,就是跟馬混,你說是吧?"]}},
+  {name:"傲嬌薇薇安", emoji:"👑", tag:"貴族育馬師", mul:7, mood:50, sens:1.6, warm:1.3,
+   voice:{pitch:1.35, rate:1.05},
+   desc:"只養血統高貴、腿長跑得快的名駒,價格自然也高。個性高傲又愛面子。",
+   flavor:g=>{ g.legLen=rnd(1.3,1.9); g.bodyLen=rnd(0.7,1); },
+   persona:"高傲的貴族育馬師,傲嬌、愛面子、嘴硬心軟——被稱讚會嘴上否認其實開心,被嫌棄會很生氣,自稱『本小姐』。",
+   lines:{
+     praise:["哼,算你有眼光……才、才不是高興呢。","這種程度的稱讚,本小姐勉強收下。"],
+     insult:["你、你說什麼?!太失禮了!","本小姐的馬可是名門血統,不容你這樣說!"],
+     bargain:["降價?本小姐的馬豈是隨便打折的?","……看在你識貨的份上,或許可以考慮一點點。"],
+     greet:["歡迎光臨,不過請別弄髒我的名駒。","哦?又一位想高攀名門血統的?"],
+     horse:["本小姐只養最高貴、腿最長的名駒。","想要冠軍相的馬?那你得先證明你配得上。"],
+     default:["哼,無聊的話題,談馬吧。","本小姐可沒時間陪你閒聊。"]}},
+  {name:"瘋癲阿肯", emoji:"🔬", tag:"瘋狂科學家", mul:5, mood:50, sens:0.7, warm:1.1,
+   voice:{pitch:1.15, rate:1.2},
+   desc:"熱衷基因實驗,馬廄裡什麼奇形怪狀的馬都有。講話跳tone又中二。",
+   flavor:g=>{ g.legCount=pick([2,4,6,8]); g.neckLen=rnd(0.4,2.5); g.tailLen=rnd(0.3,2.5); },
+   persona:"瘋癲的天才科學家,講話跳tone、中二、對基因實驗和怪馬超級興奮,常發出『科科』的笑聲。",
+   lines:{
+     praise:["嘿嘿!被稱讚了!這激發我的實驗魂!","科科,你懂欣賞我的傑作!"],
+     insult:["哎呀你不懂啦,天才總是孤獨的!","侮辱科學?我的基因鏈要哭了!"],
+     bargain:["便宜?只要你答應幫我做個小小的實驗……開玩笑的,好啦算你便宜!","折扣嘛,科科,看你這麼上道就給你!"],
+     greet:["歡迎進入我的瘋狂實驗室——啊我是說牧場!","哦哦!新的實驗對象——不,是客人!"],
+     horse:["我這有八條腿的、脖子超長的、會發光的……要哪種?","每一匹都是我基因實驗的藝術品!科科科!"],
+     default:["有趣!這讓我想到一個瘋狂的點子!","你知道嗎?理論上馬可以有二十條腿!"]}},
+  {name:"怕生小梅", emoji:"🌸", tag:"新手牧場主", mul:3, mood:50, sens:1.3, warm:1.6,
+   voice:{pitch:1.5, rate:0.98},
+   desc:"剛入行,馬普普通通但便宜,新手可以來撿便宜。個性害羞怕生。", flavor:null,
+   persona:"害羞怕生的新手牧場主,講話小小聲、容易緊張和感動,被兇會快哭,對人很客氣,常說『那個……』『對不起』。",
+   lines:{
+     praise:["欸欸?謝、謝謝你……我好感動……","真、真的嗎?被誇獎我會害羞啦……"],
+     insult:["嗚……對不起……我是不是做錯什麼了……","欸……你、你不要兇我啦……"],
+     bargain:["折扣嗎?那個……我算你便宜一點好了……別生氣喔。","我、我是新手,本來就賣得比較便宜的……"],
+     greet:["啊……歡、歡迎光臨……請、請慢慢看……","你好……我叫小梅……請、請多指教……"],
+     horse:["我的馬雖然普通……但都很乖很聽話喔!","那個……你想要哪一匹?我幫你介紹……"],
+     default:["嗯、嗯……你說得對……","那個……我不太會聊天……對不起……"]}},
+  {name:"暴躁巴克", emoji:"💪", tag:"重挽馬大隊", mul:5, mood:50, sens:1.5, warm:1.2,
+   voice:{pitch:0.6, rate:1.05},
+   desc:"專養高大粗壯、耐力十足的重挽馬,拉車一絕。脾氣火爆大嗓門。",
+   flavor:g=>{ g.bodyLen=rnd(1.3,2); g.bodyH=rnd(1.2,1.8); g.legLen=rnd(0.6,1); },
+   persona:"火爆的重挽馬大隊長,大嗓門、脾氣衝、吃軟不吃硬,愛炫耀馬的力氣,自稱『爺』,順著他就開心、頂嘴就爆氣。",
+   lines:{
+     praise:["哈!算你識貨!我的馬最有力氣!","嘿嘿,誇得好!爺就愛聽這個!"],
+     insult:["你說啥?!再說一次試試看!","哼!沒力氣的傢伙才愛耍嘴皮子!"],
+     bargain:["殺價?!……哼,順著爺說話,就給你便宜!","想便宜?先誇爺的馬壯不壯!"],
+     greet:["來啦!想要壯馬找對人了!","哦?看你瘦巴巴的,扛得動爺的馬嗎?哈哈!"],
+     horse:["爺的重挽馬,一匹能拉一台卡車!","要力氣大的?爺這全是猛獸——啊不,猛馬!"],
+     default:["哈哈哈!爽快!","少廢話,看馬!爺沒耐性喔!"]}},
+  {name:"冷豔露娜", emoji:"🌙", tag:"神秘收藏家", mul:8, mood:50, sens:1.4, warm:0.9,
+   voice:{pitch:1.1, rate:0.82},
+   desc:"專門收藏稀有品種,偶爾有難得一見的怪馬,但要價不菲。個性高冷神祕。",
+   flavor:g=>{ g.hornType=pick(["antler","curl","none"]); g.earLen=rnd(0.5,3); g.tailLen=rnd(0.3,2.8); },
+   persona:"高冷神祕的稀有馬收藏家,話少、冷淡、有距離感,喜歡稀有和神祕的話題,難親近但被打動時會露出一點溫柔。",
+   lines:{
+     praise:["……謝謝。","稱讚對我沒什麼用……不過,還算順耳。"],
+     insult:["……(冷冷地看了你一眼)","無禮的人,不配看我的收藏。"],
+     bargain:["降價……取決於你有多懂得欣賞稀有之物。","……或許吧,如果你值得。"],
+     greet:["……歡迎,別碰我的收藏。","你來了。想找些……不尋常的東西?"],
+     horse:["我收藏的,都是世間罕見的稀有品種。","獨角、雙尾、月光下才現形的……你想要哪一種?"],
+     default:["……(沉默地看著你)","有些事,不需要言語。"]}}
 ];
-let curOwner=0, ownerStock=[];
+let curOwner=0, ownerStock=[], autoRead=true;
 
 // 秤重工廠:重量與每公斤價都是好計算的整數,最貴一匹不超過 $180
 // 重量 = 20~60 公斤(取整到 10);每公斤價 = $1~$3(整數,每天浮動)→ 最多 60×3=180
@@ -1378,20 +1462,22 @@ function openOwner(i){
     if(Math.random()<0.3) h.trophies=rndi(1,2); // 偶爾有得過獎的馬
     ownerStock.push(h);
   }
-  renderOwnerStock(); renderOwnerSell();
+  renderOwnerStock(); renderOwnerSell(); initChat();
 }
 
 function renderOwnerStock(){
   const o=OWNERS[curOwner], el=$("ownerStock"); el.innerHTML="";
+  const disc=moodDiscount(o.mood??50); // 好感度折扣
+  const priceOf=h=>Math.round(marketBuyPrice(h,o.mul)*(1-disc));
   if(ownerStock.length===0){ el.innerHTML=`<p class="hint">這位牧場主的馬都被買光了。</p>`; return; }
   ownerStock.forEach(h=>{
-    const price=marketBuyPrice(h,o.mul);
-    const c=horseCard(h,`<div class="row" style="margin:6px 0 0"><button class="btn sm" data-buy="${h.id}">買下 $${price.toLocaleString()}</button></div>`);
+    const price=priceOf(h);
+    const c=horseCard(h,`<div class="row" style="margin:6px 0 0"><button class="btn sm" data-buy="${h.id}">買下 $${price.toLocaleString()}${disc>0.001?' 🎁':''}</button></div>`);
     el.appendChild(c);
   });
   el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
     const h=ownerStock.find(x=>x.id==b.dataset.buy);
-    const price=marketBuyPrice(h,o.mul);
+    const price=priceOf(h);
     if(money<price) return toast("錢不夠!這匹馬要 $"+price.toLocaleString());
     if(horses.length>=8) return toast("你的牧場滿了(最多 8 隻)!");
     money-=price; day++; horses.push(h);
@@ -1417,6 +1503,147 @@ function renderOwnerSell(){
     toast(`💰 賣掉了 ${h.name},得 $${price.toLocaleString()}`);
     refreshHUD(); renderOwnerSell(); renderRanch();
   });
+}
+
+// ============ 跟牧場主聊天 ============
+// 心情 → 買馬折扣:好感度高最多打到 -30%,低則加價最多 +15%
+function moodDiscount(m){ return clamp((m-50)/50*0.3, -0.15, 0.3); }
+function updateOwnerMood(){
+  const o=OWNERS[curOwner], m=Math.round(o.mood??50);
+  const face=m<20?"😠":m<40?"😒":m<60?"😐":m<80?"🙂":"😄";
+  const d=moodDiscount(m);
+  const tag = d>0.001?`買馬 <b style="color:var(--green)">-${Math.round(d*100)}%</b>`
+    : d<-0.001?`買馬 <b style="color:var(--red)">+${Math.round(-d*100)}%</b>(不爽加價)`
+    : `原價`;
+  $("ownerMood").innerHTML=`<span class="oddsTag" style="display:inline-block">${face} 好感度 ${m}/100 · ${tag}</span>`;
+}
+
+// ---- 語音朗讀(瀏覽器內建語音合成)----
+function pickVoice(){
+  if(!('speechSynthesis' in window)) return null;
+  const vs=speechSynthesis.getVoices();
+  return vs.find(v=>/zh[-_]?TW/i.test(v.lang)) || vs.find(v=>/zh|cmn/i.test(v.lang)) || null;
+}
+if('speechSynthesis' in window){ try{ speechSynthesis.onvoiceschanged=pickVoice; pickVoice(); }catch(e){} }
+function speak(text, owner){
+  if(!('speechSynthesis' in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text.replace(/<mood>[\s\S]*?<\/mood>/g,"").trim());
+    const v=pickVoice(); if(v) u.voice=v;
+    u.lang="zh-TW"; u.pitch=owner.voice?.pitch??1; u.rate=owner.voice?.rate??1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+// ---- 離線個性聊天引擎 ----
+function classify(t){
+  const has=a=>a.some(w=>t.includes(w));
+  if(has(["笨","蠢","醜","爛","討厭","滾","白痴","呆","壞","垃圾","無聊","智障","閉嘴","難看","廢"])) return "insult";
+  if(has(["棒","厲害","喜歡","愛你","讚","可愛","漂亮","帥","聰明","強","佩服","最","美","溫柔","謝謝","感謝","好人"])) return "praise";
+  if(has(["便宜","折扣","降價","打折","少一點","優惠","太貴","便宜點","算我","算便宜","殺價"])) return "bargain";
+  if(has(["你好","哈囉","嗨","hi","hello","早安","午安","晚安","在嗎","哈嘍","嘿"])) return "greet";
+  if(has(["馬","推薦","哪匹","哪隻","血統","品種","多少錢","價錢","賣不賣","買"])) return "horse";
+  return "default";
+}
+function offlineReply(owner, raw){
+  const cat=classify(raw.toLowerCase());
+  const text=pick(owner.lines[cat]||owner.lines.default);
+  let base={insult:-8, praise:6, bargain:2, greet:1, horse:1, default:1}[cat]||0;
+  if(cat==="insult") base*=owner.sens;
+  if(cat==="praise") base*=owner.warm;
+  return {text, mood:Math.round(base)};
+}
+
+// ---- 真.AI 聊天(用玩家自己的 API 金鑰,瀏覽器直連)----
+const AI_KEY_STORE="horsey-ai-key";
+const AI_MODEL="claude-haiku-4-5"; // 便宜快速;想更聰明可改 claude-sonnet-5 或 claude-opus-4-8
+function getAIKey(){ try{ return localStorage.getItem(AI_KEY_STORE)||""; }catch(e){ return ""; } }
+function setAIKey(k){ try{ k?localStorage.setItem(AI_KEY_STORE,k):localStorage.removeItem(AI_KEY_STORE); }catch(e){} }
+function aiSystem(owner){
+  return `你正在一個叫「不是賽馬遊戲」的搞笑遊戲裡,扮演一位馬牧場主。在這個世界「萬物皆馬」,連鱷魚、機器人、蜈蚣都算是馬。
+你的角色:${owner.name}(${owner.tag})。
+個性:${owner.persona}
+規則:
+- 完全用「繁體中文(台灣)」的口語回覆,要像真人聊天,不要像機器人、不要條列。
+- 徹底保持這個角色的個性與口氣,絕不出戲,絕不承認自己是 AI 或程式。
+- 回覆簡短(1~3 句),內容適合小朋友,不要有任何不當內容。
+- 玩家可能想跟你買馬或殺價。你目前對這位玩家的好感度是 ${Math.round(owner.mood??50)}/100;好感度高你會更友善、願意給折扣,好感度低就冷淡、不給折扣。
+- 在回覆的最後另起一行,單獨輸出你對這位玩家好感度的變化,格式:<mood>N</mood>,N 是 -3 到 3 的整數(讓你開心給正值,惹你生氣給負值)。這一行後面不可以再有任何文字。`;
+}
+async function aiReply(owner, userText){
+  const key=getAIKey();
+  const hist=(owner.chat||[]).slice(-8).map(m=>({role:m.role, content:m.text}));
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true","content-type":"application/json"},
+    body:JSON.stringify({model:AI_MODEL, max_tokens:300, system:aiSystem(owner), messages:[...hist,{role:"user",content:userText}]})
+  });
+  if(!res.ok) throw new Error("API "+res.status);
+  const data=await res.json();
+  let text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
+  let mood=0; const m=text.match(/<mood>\s*(-?\d+)\s*<\/mood>/);
+  if(m){ mood=clamp(parseInt(m[1])||0,-3,3); text=text.replace(m[0],"").trim(); }
+  return {text:text||"……", mood};
+}
+
+// ---- 聊天 UI ----
+function appendChat(who, text, typing){
+  const log=$("chatLog");
+  const d=document.createElement("div");
+  d.className="bub "+who+(typing?" typing":"");
+  d.textContent=text;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+  return d;
+}
+function updateChatMode(){ $("chatMode").textContent = getAIKey()?"🤖 真.AI 模式":"💬 離線個性模式"; }
+function initChat(){
+  const owner=OWNERS[curOwner]; owner.chat=owner.chat||[];
+  const log=$("chatLog"); log.innerHTML="";
+  if(owner.chat.length){ owner.chat.forEach(m=>appendChat(m.role==="user"?"you":"owner", m.text)); }
+  else{ const g=pick(owner.lines.greet); appendChat("owner", g); owner.chat.push({role:"assistant",text:g}); }
+  updateOwnerMood(); updateChatMode();
+  $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關");
+  $("btnSend").onclick=sendChat;
+  $("chatInput").onkeydown=e=>{ if(e.key==="Enter") sendChat(); };
+  $("btnVoice").onclick=()=>{ autoRead=!autoRead; $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關"); if(!autoRead&&'speechSynthesis'in window) speechSynthesis.cancel(); };
+  $("btnAISettings").onclick=openAISettings;
+}
+let chatBusy=false;
+async function sendChat(){
+  if(chatBusy) return;
+  const owner=OWNERS[curOwner], inp=$("chatInput"), text=inp.value.trim();
+  if(!text) return;
+  inp.value=""; owner.chat=owner.chat||[];
+  owner.chat.push({role:"user",text}); appendChat("you",text);
+  chatBusy=true;
+  const typing=appendChat("owner","(思考中…)",true);
+  let reply;
+  try{ reply = getAIKey()? await aiReply(owner,text) : offlineReply(owner,text); }
+  catch(e){ toast("AI 連線失敗,改用離線模式"); reply=offlineReply(owner,text); }
+  typing.remove();
+  owner.chat.push({role:"assistant",text:reply.text}); appendChat("owner",reply.text);
+  owner.mood=clamp((owner.mood??50)+reply.mood, 0, 100);
+  updateOwnerMood(); renderOwnerStock(); save();
+  if(autoRead) speak(reply.text, owner);
+  chatBusy=false;
+}
+window.saveAIKey=function(){
+  const v=(document.getElementById("aiKeyInput").value||"").trim();
+  setAIKey(v); closeOverlay(); updateChatMode();
+  toast(v?"✅ 已啟用真.AI 聊天":"已切回離線聊天");
+};
+function openAISettings(){
+  overlay(`<h2>⚙️ AI 聊天設定</h2>
+    <p style="font-size:13px;text-align:left;line-height:1.75">想讓牧場主用「<b>真.AI</b>」跟你對話、完全像真人,需要一組 Anthropic API 金鑰(sk-ant-…):<br>
+    • 金鑰只會存在<b>你這台裝置的瀏覽器</b>裡,不會上傳、也不會進到公開網站的原始碼。<br>
+    • 每則訊息會用掉你 Anthropic 帳號一點點費用。<br>
+    • <b>留空</b>並儲存 = 使用免費的離線個性聊天。</p>
+    <input id="aiKeyInput" type="password" placeholder="sk-ant-...(貼上你的金鑰)" style="width:100%;margin:6px 0">
+    <div class="row" style="justify-content:center;margin-top:6px">
+      <button class="btn" onclick="saveAIKey()">儲存</button>
+      <button class="btn gray" onclick="closeOverlay()">取消</button>
+    </div>`);
 }
 
 // ============ 分頁切換 ============
@@ -1449,6 +1676,7 @@ try{
     money=s.money; day=s.day||1; horses=s.horses; nextId=s.nextId||1000; won=!!s.won;
     ribbons=s.ribbons||{};
     raceLog=s.raceLog||[]; trophyBoard=s.trophyBoard||[];
+    if(Array.isArray(s.ownerMoods)) s.ownerMoods.forEach((v,i)=>{ if(OWNERS[i]) OWNERS[i].mood=clamp(v,0,100); });
     // 舊存檔的馬補上新基因/獎盃欄位
     horses.forEach(h=>{ const g=h.g;
       g.earLen??=1; g.tailLen??=1; g.hornType??="none"; g.hornSize??=1;
