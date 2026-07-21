@@ -263,8 +263,9 @@
       <div id="chatBox" style="margin-bottom:12px">
         <div class="row" style="justify-content:space-between;margin:0 0 6px">
           <span id="chatMode" class="sp"></span>
-          <span style="display:flex;gap:6px">
+          <span style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn sm gray" id="btnVoice">🔊 語音:開</button>
+            <button class="btn sm gray" id="btnTestVoice">🎙️ 試聽</button>
             <button class="btn sm gray" id="btnAISettings">⚙️ AI</button>
           </span>
         </div>
@@ -1321,7 +1322,7 @@ function renderLab(){
 // ============ 馬市:其他牧場主 ============
 const OWNERS=[
   {name:"豪爽老喬", emoji:"🤠", tag:"西部老牧人", mul:5, mood:50, sens:0.6, warm:1.2,
-   voice:{pitch:0.7, rate:0.95},
+   male:true, voice:{pitch:0.55, rate:0.9},
    desc:"養了一輩子的馬,馬廄裡都是老實可靠的傳統好馬。個性海派好相處。", flavor:null,
    persona:"海派豪爽的西部老牧人,大方、講義氣、好相處,愛用『哈哈』開頭、自稱『老喬』,幾乎不生氣。",
    lines:{
@@ -1332,7 +1333,7 @@ const OWNERS=[
      horse:["我這的馬都老實可靠,挑一匹準沒錯!","要跑得快的還是耐操的?老喬幫你參謀。"],
      default:["哈哈,說得好!來,喝杯茶再看馬。","牧場的日子啊,就是跟馬混,你說是吧?"]}},
   {name:"傲嬌薇薇安", emoji:"👑", tag:"貴族育馬師", mul:7, mood:50, sens:1.6, warm:1.3,
-   voice:{pitch:1.35, rate:1.05},
+   male:false, voice:{pitch:1.45, rate:1.1},
    desc:"只養血統高貴、腿長跑得快的名駒,價格自然也高。個性高傲又愛面子。",
    flavor:g=>{ g.legLen=rnd(1.3,1.9); g.bodyLen=rnd(0.7,1); },
    persona:"高傲的貴族育馬師,傲嬌、愛面子、嘴硬心軟——被稱讚會嘴上否認其實開心,被嫌棄會很生氣,自稱『本小姐』。",
@@ -1344,7 +1345,7 @@ const OWNERS=[
      horse:["本小姐只養最高貴、腿最長的名駒。","想要冠軍相的馬?那你得先證明你配得上。"],
      default:["哼,無聊的話題,談馬吧。","本小姐可沒時間陪你閒聊。"]}},
   {name:"瘋癲阿肯", emoji:"🔬", tag:"瘋狂科學家", mul:5, mood:50, sens:0.7, warm:1.1,
-   voice:{pitch:1.15, rate:1.2},
+   male:true, voice:{pitch:1.3, rate:1.35},
    desc:"熱衷基因實驗,馬廄裡什麼奇形怪狀的馬都有。講話跳tone又中二。",
    flavor:g=>{ g.legCount=pick([2,4,6,8]); g.neckLen=rnd(0.4,2.5); g.tailLen=rnd(0.3,2.5); },
    persona:"瘋癲的天才科學家,講話跳tone、中二、對基因實驗和怪馬超級興奮,常發出『科科』的笑聲。",
@@ -1356,7 +1357,7 @@ const OWNERS=[
      horse:["我這有八條腿的、脖子超長的、會發光的……要哪種?","每一匹都是我基因實驗的藝術品!科科科!"],
      default:["有趣!這讓我想到一個瘋狂的點子!","你知道嗎?理論上馬可以有二十條腿!"]}},
   {name:"怕生小梅", emoji:"🌸", tag:"新手牧場主", mul:3, mood:50, sens:1.3, warm:1.6,
-   voice:{pitch:1.5, rate:0.98},
+   male:false, voice:{pitch:1.6, rate:0.9},
    desc:"剛入行,馬普普通通但便宜,新手可以來撿便宜。個性害羞怕生。", flavor:null,
    persona:"害羞怕生的新手牧場主,講話小小聲、容易緊張和感動,被兇會快哭,對人很客氣,常說『那個……』『對不起』。",
    lines:{
@@ -1367,7 +1368,7 @@ const OWNERS=[
      horse:["我的馬雖然普通……但都很乖很聽話喔!","那個……你想要哪一匹?我幫你介紹……"],
      default:["嗯、嗯……你說得對……","那個……我不太會聊天……對不起……"]}},
   {name:"暴躁巴克", emoji:"💪", tag:"重挽馬大隊", mul:5, mood:50, sens:1.5, warm:1.2,
-   voice:{pitch:0.6, rate:1.05},
+   male:true, voice:{pitch:0.4, rate:1.15},
    desc:"專養高大粗壯、耐力十足的重挽馬,拉車一絕。脾氣火爆大嗓門。",
    flavor:g=>{ g.bodyLen=rnd(1.3,2); g.bodyH=rnd(1.2,1.8); g.legLen=rnd(0.6,1); },
    persona:"火爆的重挽馬大隊長,大嗓門、脾氣衝、吃軟不吃硬,愛炫耀馬的力氣,自稱『爺』,順著他就開心、頂嘴就爆氣。",
@@ -1379,7 +1380,7 @@ const OWNERS=[
      horse:["爺的重挽馬,一匹能拉一台卡車!","要力氣大的?爺這全是猛獸——啊不,猛馬!"],
      default:["哈哈哈!爽快!","少廢話,看馬!爺沒耐性喔!"]}},
   {name:"冷豔露娜", emoji:"🌙", tag:"神秘收藏家", mul:8, mood:50, sens:1.4, warm:0.9,
-   voice:{pitch:1.1, rate:0.82},
+   male:false, voice:{pitch:0.85, rate:0.72},
    desc:"專門收藏稀有品種,偶爾有難得一見的怪馬,但要價不菲。個性高冷神祕。",
    flavor:g=>{ g.hornType=pick(["antler","curl","none"]); g.earLen=rnd(0.5,3); g.tailLen=rnd(0.3,2.8); },
    persona:"高冷神祕的稀有馬收藏家,話少、冷淡、有距離感,喜歡稀有和神祕的話題,難親近但被打動時會露出一點溫柔。",
@@ -1519,21 +1520,42 @@ function updateOwnerMood(){
 }
 
 // ---- 語音朗讀(瀏覽器內建語音合成)----
-function pickVoice(){
-  if(!('speechSynthesis' in window)) return null;
+// 已知的男聲名稱關鍵字(Windows/Android/iOS 常見)
+const MALE_HINTS=["zhiwei","志威","yunjhe","雲哲","kangkang","康康","liang","yunxi","male","男"];
+function zhVoices(){
+  if(!('speechSynthesis' in window)) return [];
   const vs=speechSynthesis.getVoices();
-  return vs.find(v=>/zh[-_]?TW/i.test(v.lang)) || vs.find(v=>/zh|cmn/i.test(v.lang)) || null;
+  return vs.filter(v=>/zh[-_]?TW/i.test(v.lang)).concat(vs.filter(v=>/zh|cmn/i.test(v.lang) && !/zh[-_]?TW/i.test(v.lang)));
 }
-if('speechSynthesis' in window){ try{ speechSynthesis.onvoiceschanged=pickVoice; pickVoice(); }catch(e){} }
+// 依「男/女」分組,再把不同的語音輪流分給不同牧場主,避免大家聲音都一樣
+function assignVoices(){
+  const vs=zhVoices(); if(!vs.length) return;
+  const isMale=v=>MALE_HINTS.some(h=>v.name.toLowerCase().includes(h));
+  const males=vs.filter(isMale), females=vs.filter(v=>!isMale(v));
+  let mi=0, fi=0;
+  OWNERS.forEach(o=>{
+    const pool = o.male ? (males.length?males:vs) : (females.length?females:vs);
+    o._voice = pool[(o.male ? mi++ : fi++) % pool.length];
+  });
+}
+if('speechSynthesis' in window){
+  try{ speechSynthesis.onvoiceschanged=assignVoices; assignVoices(); setTimeout(assignVoices,800); }catch(e){}
+}
 function speak(text, owner){
   if(!('speechSynthesis' in window)) return;
   try{
+    if(!owner._voice) assignVoices();
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text.replace(/<mood>[\s\S]*?<\/mood>/g,"").trim());
-    const v=pickVoice(); if(v) u.voice=v;
+    if(owner._voice) u.voice=owner._voice;
     u.lang="zh-TW"; u.pitch=owner.voice?.pitch??1; u.rate=owner.voice?.rate??1;
     speechSynthesis.speak(u);
   }catch(e){}
+}
+function voiceLabel(owner){
+  const n=owner._voice?.name||"";
+  const m=n.match(/Microsoft\s+(\w+)/i);
+  return m?m[1]:(n.split(/[\s(]/)[0]||"預設");
 }
 
 // ---- 離線個性聊天引擎 ----
@@ -1556,10 +1578,23 @@ function offlineReply(owner, raw){
 }
 
 // ---- 真.AI 聊天(用玩家自己的 API 金鑰,瀏覽器直連)----
-const AI_KEY_STORE="horsey-ai-key";
-const AI_MODEL="claude-haiku-4-5"; // 便宜快速;想更聰明可改 claude-sonnet-5 或 claude-opus-4-8
-function getAIKey(){ try{ return localStorage.getItem(AI_KEY_STORE)||""; }catch(e){ return ""; } }
-function setAIKey(k){ try{ k?localStorage.setItem(AI_KEY_STORE,k):localStorage.removeItem(AI_KEY_STORE); }catch(e){} }
+const AI_PROV_STORE="horsey-ai-provider";
+const CLAUDE_MODEL="claude-haiku-4-5";
+const GEMINI_MODELS=["gemini-2.5-flash","gemini-2.0-flash"]; // 前者失敗就自動退到後者
+function getProvider(){ try{ return localStorage.getItem(AI_PROV_STORE)||"off"; }catch(e){ return "off"; } }
+function setProvider(p){ try{ localStorage.setItem(AI_PROV_STORE,p); }catch(e){} }
+function keyStore(p){ return "horsey-ai-key-"+p; }
+function getKey(p){ try{ return localStorage.getItem(keyStore(p))||""; }catch(e){ return ""; } }
+function setKey(p,k){ try{ k?localStorage.setItem(keyStore(p),k):localStorage.removeItem(keyStore(p)); }catch(e){} }
+function aiActive(){ const p=getProvider(); return (p==="gemini"||p==="claude") && !!getKey(p); }
+// 舊版存的金鑰自動搬到新結構
+try{ const old=localStorage.getItem("horsey-ai-key");
+  if(old){ setKey("claude",old); setProvider("claude"); localStorage.removeItem("horsey-ai-key"); } }catch(e){}
+function parseMood(text){
+  let mood=0; const m=text.match(/<mood>\s*(-?\d+)\s*<\/mood>/);
+  if(m){ mood=clamp(parseInt(m[1])||0,-3,3); text=text.replace(m[0],"").trim(); }
+  return {text:text||"……", mood};
+}
 function aiSystem(owner){
   return `你正在一個叫「不是賽馬遊戲」的搞笑遊戲裡,扮演一位馬牧場主。在這個世界「萬物皆馬」,連鱷魚、機器人、蜈蚣都算是馬。
 你的角色:${owner.name}(${owner.tag})。
@@ -1571,20 +1606,44 @@ function aiSystem(owner){
 - 玩家可能想跟你買馬或殺價。你目前對這位玩家的好感度是 ${Math.round(owner.mood??50)}/100;好感度高你會更友善、願意給折扣,好感度低就冷淡、不給折扣。
 - 在回覆的最後另起一行,單獨輸出你對這位玩家好感度的變化,格式:<mood>N</mood>,N 是 -3 到 3 的整數(讓你開心給正值,惹你生氣給負值)。這一行後面不可以再有任何文字。`;
 }
-async function aiReply(owner, userText){
-  const key=getAIKey();
+async function claudeReply(owner, userText){
   const hist=(owner.chat||[]).slice(-8).map(m=>({role:m.role, content:m.text}));
   const res=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
-    headers:{"x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true","content-type":"application/json"},
-    body:JSON.stringify({model:AI_MODEL, max_tokens:300, system:aiSystem(owner), messages:[...hist,{role:"user",content:userText}]})
+    headers:{"x-api-key":getKey("claude"),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true","content-type":"application/json"},
+    body:JSON.stringify({model:CLAUDE_MODEL, max_tokens:300, system:aiSystem(owner), messages:[...hist,{role:"user",content:userText}]})
   });
-  if(!res.ok) throw new Error("API "+res.status);
+  if(!res.ok) throw new Error("Claude "+res.status);
   const data=await res.json();
-  let text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
-  let mood=0; const m=text.match(/<mood>\s*(-?\d+)\s*<\/mood>/);
-  if(m){ mood=clamp(parseInt(m[1])||0,-3,3); text=text.replace(m[0],"").trim(); }
-  return {text:text||"……", mood};
+  const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
+  return parseMood(text);
+}
+async function geminiReply(owner, userText){
+  const key=getKey("gemini");
+  // Gemini 的對話歷史必須從 user 開始,先去掉開頭的招呼(assistant)
+  const hist=(owner.chat||[]).slice(-8).map(m=>({role:m.role==="user"?"user":"model", parts:[{text:m.text}]}));
+  while(hist.length && hist[0].role!=="user") hist.shift();
+  const body={
+    system_instruction:{parts:[{text:aiSystem(owner)}]},
+    contents:[...hist,{role:"user",parts:[{text:userText}]}],
+    generationConfig:{maxOutputTokens:400}
+  };
+  let lastErr;
+  for(const model of GEMINI_MODELS){
+    try{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+        {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
+      if(!res.ok){ lastErr=new Error("Gemini "+res.status); if(res.status===404||res.status===400) continue; throw lastErr; }
+      const data=await res.json();
+      const text=(data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim();
+      if(!text){ lastErr=new Error("Gemini 空回覆"); continue; }
+      return parseMood(text);
+    }catch(e){ lastErr=e; }
+  }
+  throw lastErr||new Error("Gemini 失敗");
+}
+async function aiReply(owner, userText){
+  return getProvider()==="gemini" ? geminiReply(owner,userText) : claudeReply(owner,userText);
 }
 
 // ---- 聊天 UI ----
@@ -1596,7 +1655,11 @@ function appendChat(who, text, typing){
   log.appendChild(d); log.scrollTop=log.scrollHeight;
   return d;
 }
-function updateChatMode(){ $("chatMode").textContent = getAIKey()?"🤖 真.AI 模式":"💬 離線個性模式"; }
+function updateChatMode(){
+  const p=getProvider();
+  $("chatMode").textContent = !aiActive() ? "💬 離線個性模式"
+    : (p==="gemini" ? "✨ Gemini AI 模式" : "🤖 Claude AI 模式");
+}
 function initChat(){
   const owner=OWNERS[curOwner]; owner.chat=owner.chat||[];
   const log=$("chatLog"); log.innerHTML="";
@@ -1607,6 +1670,11 @@ function initChat(){
   $("btnSend").onclick=sendChat;
   $("chatInput").onkeydown=e=>{ if(e.key==="Enter") sendChat(); };
   $("btnVoice").onclick=()=>{ autoRead=!autoRead; $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關"); if(!autoRead&&'speechSynthesis'in window) speechSynthesis.cancel(); };
+  $("btnTestVoice").onclick=()=>{
+    if(!owner._voice) assignVoices();
+    speak(pick(owner.lines.greet), owner);
+    toast(`🎙️ ${owner.name} 的音色:${voiceLabel(owner)}`);
+  };
   $("btnAISettings").onclick=openAISettings;
 }
 let chatBusy=false;
@@ -1619,8 +1687,8 @@ async function sendChat(){
   chatBusy=true;
   const typing=appendChat("owner","(思考中…)",true);
   let reply;
-  try{ reply = getAIKey()? await aiReply(owner,text) : offlineReply(owner,text); }
-  catch(e){ toast("AI 連線失敗,改用離線模式"); reply=offlineReply(owner,text); }
+  try{ reply = aiActive()? await aiReply(owner,text) : offlineReply(owner,text); }
+  catch(e){ toast("AI 連線失敗("+(e.message||"")+"),改用離線模式"); reply=offlineReply(owner,text); }
   typing.remove();
   owner.chat.push({role:"assistant",text:reply.text}); appendChat("owner",reply.text);
   owner.mood=clamp((owner.mood??50)+reply.mood, 0, 100);
@@ -1628,22 +1696,47 @@ async function sendChat(){
   if(autoRead) speak(reply.text, owner);
   chatBusy=false;
 }
-window.saveAIKey=function(){
-  const v=(document.getElementById("aiKeyInput").value||"").trim();
-  setAIKey(v); closeOverlay(); updateChatMode();
-  toast(v?"✅ 已啟用真.AI 聊天":"已切回離線聊天");
+window.onProvChange=function(){
+  const p=document.getElementById("aiProv").value;
+  document.getElementById("aiKeyRow").style.display = p==="off"?"none":"";
+  document.getElementById("aiHint").innerHTML = p==="gemini"
+    ? `<b style="color:var(--green)">免費!</b>到 <b>aistudio.google.com/apikey</b> 用 Google 帳號申請,<b>不用綁信用卡</b>,每天約 1,500 則訊息額度。<br>
+       <span style="color:var(--red)">注意:免費方案的對話內容可能被 Google 用於改進模型,請別在聊天裡打真實姓名、電話等個資。</span>`
+    : p==="claude"
+    ? `需要 Anthropic 金鑰(<b style="color:var(--gold)">付費</b>,每則訊息會有少量費用)。到 <b>console.anthropic.com</b> 申請。`
+    : `牧場主會用內建的個性對白回應,完全免費、不用金鑰,但不像真人那麼自由。`;
+  const k=getKey(p);
+  const inp=document.getElementById("aiKeyInput");
+  if(inp) inp.placeholder = k ? "(已儲存金鑰,留空表示不變更)" : "貼上你的 API 金鑰";
+};
+window.saveAISettings=function(){
+  const p=document.getElementById("aiProv").value;
+  const k=(document.getElementById("aiKeyInput")?.value||"").trim();
+  setProvider(p);
+  if(p!=="off" && k) setKey(p,k);
+  closeOverlay(); updateChatMode();
+  if(p==="off") toast("已切回離線個性聊天");
+  else if(getKey(p)) toast("✅ 已啟用 "+(p==="gemini"?"Gemini":"Claude")+" AI 聊天");
+  else toast("⚠️ 還沒填金鑰,先用離線模式");
 };
 function openAISettings(){
+  const p=getProvider();
+  const opt=(v,t)=>`<option value="${v}"${p===v?" selected":""}>${t}</option>`;
   overlay(`<h2>⚙️ AI 聊天設定</h2>
-    <p style="font-size:13px;text-align:left;line-height:1.75">想讓牧場主用「<b>真.AI</b>」跟你對話、完全像真人,需要一組 Anthropic API 金鑰(sk-ant-…):<br>
-    • 金鑰只會存在<b>你這台裝置的瀏覽器</b>裡,不會上傳、也不會進到公開網站的原始碼。<br>
-    • 每則訊息會用掉你 Anthropic 帳號一點點費用。<br>
-    • <b>留空</b>並儲存 = 使用免費的離線個性聊天。</p>
-    <input id="aiKeyInput" type="password" placeholder="sk-ant-...(貼上你的金鑰)" style="width:100%;margin:6px 0">
-    <div class="row" style="justify-content:center;margin-top:6px">
-      <button class="btn" onclick="saveAIKey()">儲存</button>
+    <p style="font-size:13px;text-align:left;line-height:1.7;margin-bottom:8px">選擇牧場主的「聊天腦」:</p>
+    <select id="aiProv" onchange="onProvChange()" style="width:100%;padding:9px;font-size:15px;border-radius:8px;border:2px solid var(--line);background:#241b12;color:var(--text);font-family:inherit">
+      ${opt("off","💬 離線個性模式(免費、免金鑰)")}
+      ${opt("gemini","✨ Google Gemini(免費 ⭐推薦)")}
+      ${opt("claude","🤖 Anthropic Claude(付費)")}
+    </select>
+    <div id="aiHint" class="sp" style="text-align:left;margin:10px 0;line-height:1.7"></div>
+    <div id="aiKeyRow"><input id="aiKeyInput" type="password" placeholder="貼上你的 API 金鑰" style="width:100%"></div>
+    <p class="sp" style="text-align:left;margin-top:10px">🔒 金鑰只存在<b>這台裝置的瀏覽器</b>裡,不會上傳、也不會進到公開網站的原始碼。</p>
+    <div class="row" style="justify-content:center;margin-top:8px">
+      <button class="btn" onclick="saveAISettings()">儲存</button>
       <button class="btn gray" onclick="closeOverlay()">取消</button>
     </div>`);
+  onProvChange();
 }
 
 // ============ 分頁切換 ============
