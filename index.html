@@ -158,6 +158,7 @@
       <div class="row" id="raceTabs">
         <button class="btn sm" id="tabBet">🎫 下注別的馬</button>
         <button class="btn sm gray" id="tabEnter">🏇 派自己的馬出賽</button>
+        <button class="btn sm gray" id="tabSched">📋 賽程表</button>
       </div>
       <!-- 下注模式 -->
       <div id="betPanel">
@@ -174,6 +175,13 @@
         <div class="row" id="tierRow"></div>
         <div class="cards" id="enterCards"></div>
         <div class="row"><button class="btn" id="btnEnterGo" disabled>🏁 報名出賽!</button></div>
+      </div>
+      <!-- 賽程表 / 戰績 -->
+      <div id="schedPanel" style="display:none">
+        <h3 style="color:var(--gold);font-size:15px;margin:8px 0 6px">🏁 最近戰績(收支表)</h3>
+        <div id="raceLogBox" style="overflow-x:auto"></div>
+        <h3 style="color:var(--gold);font-size:15px;margin:14px 0 6px">🏆 獎盃榜(得過獎盃的馬)</h3>
+        <div id="trophyBox"></div>
       </div>
       <!-- 撿大便(沒錢時) -->
       <div id="poopPanel" style="display:none">
@@ -224,7 +232,15 @@
     <h2>馬市 · 其他牧場主</h2>
     <div id="marketList">
       <p class="hint">拜訪其他牧場主、參觀他們的馬。你可以<b>向他們買馬</b>,也可以<b>把自己的馬賣給他們</b>——賣給牧場主比在自己牧場隨便脫手划算,而且<b style="color:var(--gold)">得過獎盃 🏆 的馬更值錢</b>!</p>
+      <div class="row"><button class="btn" id="btnFactory" style="background:#8a6b3d;color:#fff">⚖️ 前往「秤重工廠」(按重量賣馬)</button></div>
       <div class="cards" id="ownerCards"></div>
+    </div>
+    <div id="factoryView" style="display:none">
+      <div class="row"><button class="btn gray" id="btnFactoryBack">← 回到馬市</button></div>
+      <h2>⚖️ 秤重工廠</h2>
+      <p class="hint">工廠按<b>重量</b>收馬,每公斤價格<b style="color:var(--gold)">每天浮動</b>!你可以秤出每匹馬的重量、看今天的每公斤價格,自己<b>算算看</b>能賣多少錢……但要<b>賣掉之後才會揭曉</b>實際金額。跟牧場主的固定報價比比看,哪種賣法比較划算?🧮</p>
+      <div class="oddsTag" id="rateTag" style="font-size:15px;display:inline-block;margin-bottom:8px"></div>
+      <div class="cards" id="factoryCards"></div>
     </div>
     <div id="ownerView" style="display:none">
       <div class="row"><button class="btn gray" id="btnOwnerBack">← 回到馬市</button></div>
@@ -487,7 +503,7 @@ window.closeOverlay=()=>$("overlay").classList.remove("on");
 const SAVE_KEY="horsey-save-v1";
 function save(){
   try{
-    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won,ribbons}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({money,day,horses,nextId,won,ribbons,raceLog,trophyBoard}));
   }catch(e){} // 無痕模式等情況存不了就算了,不影響遊戲
 }
 function refreshHUD(){
@@ -508,22 +524,26 @@ function cure(){
   renderRanch();
 }
 
-function statBars(h){
-  // 超過 100 的素質(進化馬)以金色條+⚡顯示
+// mode: 預設顯示全部;"none"=完全不顯示數字(賽馬下注用);"energy"=只顯示體力
+function statBars(h, mode){
+  if(mode==="none") return "";
   const bar=(v,c)=>`<div class="bar"><i style="width:${Math.min(v,100)}%;background:${v>100?"linear-gradient(90deg,"+c+",#ffd24a)":c}"></i></div>`;
+  if(mode==="energy"){
+    return bar(h.energy,"#e86a5e")+`<div class="bl"><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
+  }
   const num=v=>v>100?`<b style="color:var(--gold)">${v}⚡</b>`:v;
   return bar(h.stats.speed,"#e8a54a")+bar(h.stats.stamina,"#7ec850")+bar(h.stats.balance,"#6fb3e0")+bar(h.energy,"#e86a5e")+
   `<div class="bl"><span>🏃速度 ${num(h.stats.speed)}</span><span>💪耐力 ${num(h.stats.stamina)}</span></div>
   <div class="bl"><span>⚖️平衡 ${num(h.stats.balance)}</span><span>🔋體力 ${Math.round(h.energy)}</span></div>`;
 }
 
-function horseCard(h, extra){
+function horseCard(h, extra, statMode){
   const d=document.createElement("div");
   d.className="card"; d.dataset.id=h.id;
   d.innerHTML=`<canvas width="180" height="90"></canvas>
     <div class="nm">${h.emoji} ${h.name}</div>
     <div class="sp">${h.evo?`<b style="color:var(--gold)">⚡進化種</b> · `:""}${h.sp} · ${h.g.legCount} 條腿${h.trophies?` · <b style="color:var(--gold)">🏆×${h.trophies}</b>`:""}</div>
-    ${statBars(h)}${extra||""}`;
+    ${statBars(h,statMode)}${extra||""}`;
   const c=d.querySelector("canvas"), ctx=c.getContext("2d");
   drawHorse(ctx,90,55,h,0,Math.min(1.1, 1.6/Math.max(h.g.bodyLen,h.g.legLen,h.g.neckLen*0.8)));
   return d;
@@ -689,9 +709,11 @@ $("btnBreed").onclick=()=>{
 // ============ 賽馬 ============
 const rc=$("raceCanvas"), rctx=rc.getContext("2d");
 let race=null, raceAnim=null, raceLast=0;
-let raceMode="bet";      // "bet" 下注別的馬 | "enter" 派自己的馬
+let raceMode="bet";      // "bet" 下注別的馬 | "enter" 派自己的馬 | "sched" 賽程表
 let raceTier="normal";   // normal 一般 | champ 總冠軍
 let field=[], odds=[], betSel=null, enterSel=null;
+let raceLog=[];          // 最近戰績(收支)
+let trophyBoard=[];      // 得過獎盃的馬 {id,name,emoji,trophies}
 const TIERS={
   normal:{name:"一般比賽", entry:25, prize:500},
   champ: {name:"總冠軍賽", entry:250, prize:2500}
@@ -721,21 +743,50 @@ function computeOdds(f){
 function updateRaceTabs(){
   $("tabBet").className="btn sm"+(raceMode==="bet"?"":" gray");
   $("tabEnter").className="btn sm"+(raceMode==="enter"?"":" gray");
+  $("tabSched").className="btn sm"+(raceMode==="sched"?"":" gray");
 }
 $("tabBet").onclick=()=>{ raceMode="bet"; renderRacePick(); };
 $("tabEnter").onclick=()=>{ raceMode="enter"; renderRacePick(); };
+$("tabSched").onclick=()=>{ raceMode="sched"; renderRacePick(); };
 
 function renderRacePick(){
   $("racePick").style.display=""; $("raceView").style.display="none";
   $("btnLeave").style.display="none"; $("btnRaceBack").style.display="none";
   const broke = money<10;
+  // 沒錢時:只剩撿大便 + 賽程表(戰績還是能看)
   $("poopPanel").style.display = broke?"":"none";
-  $("raceTabs").style.display  = broke?"none":"";
-  $("betPanel").style.display  = (!broke && raceMode==="bet")?"":"none";
-  $("enterPanel").style.display= (!broke && raceMode==="enter")?"":"none";
-  if(broke) return;
+  $("raceTabs").style.display  = "";
+  $("tabBet").style.display   = broke?"none":"";
+  $("tabEnter").style.display = broke?"none":"";
+  const showBet   = !broke && raceMode==="bet";
+  const showEnter = !broke && raceMode==="enter";
+  const showSched = raceMode==="sched";
+  $("betPanel").style.display  = showBet?"":"none";
+  $("enterPanel").style.display= showEnter?"":"none";
+  $("schedPanel").style.display= showSched?"":"none";
   updateRaceTabs();
+  if(showSched){ renderSchedule(); return; }
+  if(broke) return;
   if(raceMode==="bet") renderBetPanel(); else renderEnterPanel();
+}
+
+function renderSchedule(){
+  const lb=$("raceLogBox");
+  if(raceLog.length===0){ lb.innerHTML=`<p class="hint">還沒有任何比賽紀錄。去下注或派馬出賽吧!</p>`; }
+  else{
+    lb.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:320px">
+      <tr style="color:var(--gold)"><td style="padding:3px">第幾天</td><td>賽事</td><td>結果</td><td style="text-align:right">收支</td></tr>`+
+      raceLog.map(r=>`<tr style="border-top:1px solid var(--line)">
+        <td style="padding:3px">${r.day}</td><td>${r.desc}</td><td>${r.result}</td>
+        <td style="text-align:right;color:${r.amount>=0?'var(--green)':'var(--red)'};font-variant-numeric:tabular-nums">${r.amount>=0?'+':''}${r.amount}</td></tr>`).join("")+
+      `</table>`;
+  }
+  const tb=$("trophyBox");
+  if(trophyBoard.length===0){ tb.innerHTML=`<p class="hint">還沒有馬得過獎盃。派自己的馬去比賽拿冠軍就會上榜!</p>`; }
+  else{
+    tb.innerHTML=trophyBoard.slice().sort((a,b)=>b.trophies-a.trophies)
+      .map(t=>`<span class="oddsTag" style="display:inline-block;margin:3px">${t.emoji} ${t.name} · 🏆×${t.trophies}</span>`).join("");
+  }
 }
 
 function renderBetPanel(){
@@ -743,7 +794,7 @@ function renderBetPanel(){
   $("btnBetGo").disabled=true;
   const el=$("betCards"); el.innerHTML="";
   field.forEach((o,i)=>{
-    const c=horseCard(o.h, `<div class="sp" style="margin-top:4px">賠率 <b style="color:var(--gold)">${odds[i].toFixed(1)} 倍</b></div>`);
+    const c=horseCard(o.h, `<div class="sp" style="margin-top:4px">賠率 <b style="color:var(--gold)">${odds[i].toFixed(1)} 倍</b></div>`, "none");
     c.onclick=()=>{
       betSel=i;
       el.querySelectorAll(".card").forEach((x,j)=>x.classList.toggle("sel",j===i));
@@ -778,7 +829,7 @@ function renderEnterPanel(){
   }
   horses.forEach(h=>{
     const low=h.energy<30;
-    const c=horseCard(h, low?`<div class="sp" style="color:var(--red)">體力不足,先餵食!</div>`:"");
+    const c=horseCard(h, low?`<div class="sp" style="color:var(--red)">體力不足,先餵食!</div>`:"", "energy");
     c.onclick=()=>{
       if(low) return toast(h.name+" 太累了,先餵食!");
       enterSel=h;
@@ -878,27 +929,40 @@ $("btnLeave").onclick=()=>{
 
 function endRace(allDown){ race.over=true; settleRace(false); }
 
+function logRace(desc,result,amount){
+  raceLog.unshift({day, desc, result, amount});
+  if(raceLog.length>15) raceLog.pop();
+}
 function settleRace(leftEarly){
   if(race.settled) return; race.settled=true;
   cancelAnimationFrame(raceAnim); raceAnim=null;
   const my=race.myLane, cfg=race.cfg;
   const confirmedWin = my.finished && race.ranks[0]===my; // 我的馬已完賽且是第一
   const myWon = race.ranks[0]===my;
+  const cost = cfg.mode==="bet" ? cfg.bet : TIERS[cfg.tier].entry;
+  const desc = cfg.mode==="bet" ? `🎫下注 ${my.h.emoji}${my.h.name}` : `🏇${TIERS[cfg.tier].name}`;
   let txt="";
   if(leftEarly && !confirmedWin){
     txt=`<h2>🚪 你離開了賽場</h2><p>離開時 ${my.h.emoji}${my.h.name} 還沒<b>確定奪冠</b>,${cfg.mode==="bet"?"賭金":"報名費"}就這樣飛了……<br><span class="sp">要等自己的馬確定第一名衝線,離開才拿得到獎金!</span></p>`;
+    logRace(desc,"🚪中途離開",-cost);
   } else if(myWon){
     if(cfg.mode==="bet"){
       const got=Math.round(cfg.bet*cfg.odds); money+=got;
       txt=`<h2>🥇 賭中了!</h2><p>${my.h.emoji}${my.h.name} 奪冠!<br>$${cfg.bet} × ${cfg.odds.toFixed(1)} = <b style="color:var(--gold)">贏得 $${got}</b></p>`;
+      logRace(desc,"🥇賭中",got-cost);
     }else{
       const t=TIERS[cfg.tier], tro=(cfg.tier==="champ"?2:1); money+=t.prize;
       my.h.trophies=(my.h.trophies||0)+tro;
-      txt=`<h2>🏆 冠軍!</h2><p>${my.h.emoji}${my.h.name} 拿下${t.name}冠軍!<br>固定獎金 <b style="color:var(--gold)">$${t.prize}</b> 入袋!<br>🏆 獎盃 +${tro}(牠在馬市能賣更高價)</p>`;
+      const ex=trophyBoard.find(x=>x.id===my.h.id);
+      if(ex) ex.trophies=my.h.trophies;
+      else trophyBoard.push({id:my.h.id, name:my.h.name, emoji:my.h.emoji, trophies:my.h.trophies});
+      txt=`<h2>🏆 冠軍!</h2><p>${my.h.emoji}${my.h.name} 拿下${t.name}冠軍!<br>固定獎金 <b style="color:var(--gold)">$${t.prize}</b> 入袋!<br>🏆 獎盃 +${tro}(牠在馬市能賣更高價,也上了獎盃榜)</p>`;
+      logRace(desc,"🏆冠軍",t.prize-cost);
     }
   } else {
     const place=race.ranks.indexOf(my)+1;
     txt=`<h2>😵 沒有奪冠</h2><p>${my.h.emoji}${my.h.name} 跑了第 ${place||"—"} 名。<br>${cfg.mode==="bet"?"賭金":"報名費"}拿不回來了,再接再厲!</p>`;
+    logRace(desc,`第${place||"—"}名`,-cost);
   }
   refreshHUD(); renderRanch();
   if(money<10) txt+=`<p style="color:var(--red);font-size:13px">沒錢了?回賽馬場撿大便可以換 $50。</p>`;
@@ -1213,8 +1277,44 @@ const OWNERS=[
 ];
 let curOwner=0, ownerStock=[];
 
+// 秤重工廠:重量由基因決定(固定,方便小孩計算);每公斤價格每天浮動
+function horseWeight(h){
+  const g=h.g;
+  let w = 300*g.bodyLen*g.bodyH + g.legCount*18 + (g.neckLen||1)*20 + (g.tailLen||1)*10;
+  return Math.round(clamp(w,120,1600)/5)*5; // 取整到 5 公斤
+}
+function factoryRate(){ return Math.round((1.2+(Math.sin(day*1.3+1)+1)/2*1.6)*10)/10; } // $1.2~$2.8/kg,隨天數浮動
+
+function renderFactory(){
+  $("marketList").style.display="none"; $("ownerView").style.display="none"; $("factoryView").style.display="";
+  const rate=factoryRate();
+  $("rateTag").innerHTML=`📅 今天工廠收購價:<b style="color:var(--gold)">$${rate.toFixed(1)} / 公斤</b>`;
+  const el=$("factoryCards"); el.innerHTML="";
+  if(horses.length===0){ el.innerHTML=`<p class="hint">你還沒有馬可以賣。</p>`; return; }
+  horses.forEach(h=>{
+    const w=horseWeight(h);
+    const c=horseCard(h, `<div class="sp" style="margin-top:4px">⚖️ 重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate.toFixed(1)}/kg</b> = <b style="color:var(--gold)">? ? ?</b></div>
+      <div class="row" style="margin:6px 0 0"><button class="btn sm" data-fsell="${h.id}">⚖️ 賣給工廠</button></div>`);
+    el.appendChild(c);
+  });
+  el.querySelectorAll("[data-fsell]").forEach(b=>b.onclick=()=>{
+    const h=horses.find(x=>x.id==b.dataset.fsell);
+    const w=horseWeight(h), rate=factoryRate(), total=Math.round(w*rate);
+    if(!confirm(`確定把「${h.name}」(${w} 公斤)賣給工廠嗎?\n先自己算算看能拿多少錢!`)) return;
+    money+=total; horses=horses.filter(x=>x!==h);
+    refreshHUD(); renderFactory(); renderRanch();
+    overlay(`<h2>⚖️ 過磅完成!</h2><p>${h.emoji} ${h.name}<br>
+      重量 <b>${w} 公斤</b> × <b style="color:var(--gold)">$${rate.toFixed(1)}/kg</b><br>
+      = <b style="color:var(--gold);font-size:24px">$${total.toLocaleString()}</b><br>
+      <span class="sp">你算對了嗎?跟牧場主的報價比,哪種賣法比較划算?</span></p>
+      <button class="btn" onclick="closeOverlay()">確定</button>`);
+  });
+}
+$("btnFactory").onclick=renderFactory;
+$("btnFactoryBack").onclick=renderMarket;
+
 function renderMarket(){
-  $("marketList").style.display=""; $("ownerView").style.display="none";
+  $("marketList").style.display=""; $("ownerView").style.display="none"; $("factoryView").style.display="none";
   const el=$("ownerCards"); el.innerHTML="";
   OWNERS.forEach((o,i)=>{
     const d=document.createElement("div");
@@ -1312,6 +1412,7 @@ try{
   if(s && Array.isArray(s.horses) && typeof s.money==="number"){
     money=s.money; day=s.day||1; horses=s.horses; nextId=s.nextId||1000; won=!!s.won;
     ribbons=s.ribbons||{};
+    raceLog=s.raceLog||[]; trophyBoard=s.trophyBoard||[];
     // 舊存檔的馬補上新基因/獎盃欄位
     horses.forEach(h=>{ const g=h.g;
       g.earLen??=1; g.tailLen??=1; g.hornType??="none"; g.hornSize??=1;
