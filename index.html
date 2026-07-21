@@ -1522,10 +1522,15 @@ function updateOwnerMood(){
 // ---- 語音朗讀(瀏覽器內建語音合成)----
 // 已知的男聲名稱關鍵字(Windows/Android/iOS 常見)
 const MALE_HINTS=["zhiwei","志威","yunjhe","雲哲","kangkang","康康","liang","yunxi","male","男"];
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+               (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+// 只用「同一種」中文語音,不要混用台灣/大陸/粵語 —— 混用會造成發音怪、音量忽大忽小
 function zhVoices(){
   if(!('speechSynthesis' in window)) return [];
   const vs=speechSynthesis.getVoices();
-  return vs.filter(v=>/zh[-_]?TW/i.test(v.lang)).concat(vs.filter(v=>/zh|cmn/i.test(v.lang) && !/zh[-_]?TW/i.test(v.lang)));
+  const tw=vs.filter(v=>/zh[-_]?TW/i.test(v.lang));            if(tw.length) return tw;
+  const cn=vs.filter(v=>/zh[-_]?CN|cmn/i.test(v.lang));        if(cn.length) return cn;
+  return vs.filter(v=>/zh/i.test(v.lang));
 }
 // 依「男/女」分組,再把不同的語音輪流分給不同牧場主,避免大家聲音都一樣
 function assignVoices(){
@@ -1541,15 +1546,31 @@ function assignVoices(){
 if('speechSynthesis' in window){
   try{ speechSynthesis.onvoiceschanged=assignVoices; assignVoices(); setTimeout(assignVoices,800); }catch(e){}
 }
+// iOS 會在語音講完前把 utterance 回收掉,造成聲音忽大忽小或中斷 → 留一個參考避免被回收
+let _utter=null, ttsPrimed=false;
+// iOS 第一次發聲必須來自使用者的觸控;先用無聲的一句話「解鎖」
+function primeTTS(){
+  if(ttsPrimed || !('speechSynthesis' in window)) return;
+  try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; speechSynthesis.speak(u); ttsPrimed=true; }catch(e){}
+}
 function speak(text, owner){
   if(!('speechSynthesis' in window)) return;
   try{
     if(!owner._voice) assignVoices();
-    speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text.replace(/<mood>[\s\S]*?<\/mood>/g,"").trim());
     if(owner._voice) u.voice=owner._voice;
-    u.lang="zh-TW"; u.pitch=owner.voice?.pitch??1; u.rate=owner.voice?.rate??1;
-    speechSynthesis.speak(u);
+    u.lang="zh-TW";
+    u.volume=1;                                   // 明確指定音量,別讓系統自己決定
+    const p=owner.voice?.pitch??1, r=owner.voice?.rate??1;
+    // iOS 對極端音調特別敏感(低音聽起來悶、高音聽起來尖),會讓人覺得音量忽大忽小 → 壓縮差距
+    u.pitch = IS_IOS ? clamp(1+(p-1)*0.45, 0.8, 1.25) : p;
+    u.rate  = IS_IOS ? clamp(1+(r-1)*0.7,  0.8, 1.25) : r;
+    _utter=u;                                     // 保留參考,避免被垃圾回收
+    const go=()=>{ try{ speechSynthesis.speak(u); }catch(e){} };
+    if(speechSynthesis.speaking||speechSynthesis.pending){
+      speechSynthesis.cancel();
+      setTimeout(go, IS_IOS?150:0);               // iOS 取消後要留一點時間,否則音訊會亂掉
+    } else go();
   }catch(e){}
 }
 function voiceLabel(owner){
@@ -1687,10 +1708,11 @@ function initChat(){
   else{ const g=pick(owner.lines.greet); appendChat("owner", g); owner.chat.push({role:"assistant",text:g}); }
   updateOwnerMood(); updateChatMode();
   $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關");
-  $("btnSend").onclick=sendChat;
-  $("chatInput").onkeydown=e=>{ if(e.key==="Enter") sendChat(); };
-  $("btnVoice").onclick=()=>{ autoRead=!autoRead; $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關"); if(!autoRead&&'speechSynthesis'in window) speechSynthesis.cancel(); };
+  $("btnSend").onclick=()=>{ primeTTS(); sendChat(); };
+  $("chatInput").onkeydown=e=>{ if(e.key==="Enter"){ primeTTS(); sendChat(); } };
+  $("btnVoice").onclick=()=>{ primeTTS(); autoRead=!autoRead; $("btnVoice").textContent="🔊 語音:"+(autoRead?"開":"關"); if(!autoRead&&'speechSynthesis'in window) speechSynthesis.cancel(); };
   $("btnTestVoice").onclick=()=>{
+    primeTTS();
     if(!owner._voice) assignVoices();
     speak(pick(owner.lines.greet), owner);
     toast(`🎙️ ${owner.name} 的音色:${voiceLabel(owner)}`);
