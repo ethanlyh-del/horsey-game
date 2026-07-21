@@ -107,6 +107,8 @@
   .bub.you{align-self:flex-end; background:var(--gold); color:#3a2c14; border-bottom-right-radius:3px;}
   .bub.owner{align-self:flex-start; background:var(--panel2); color:var(--text); border:1px solid var(--line); border-bottom-left-radius:3px;}
   .bub.owner.typing{opacity:.6; font-style:italic;}
+  .bub.note{align-self:center; max-width:96%; background:#4a2a20; border:1px solid var(--red);
+    color:#ffe9e3; font-size:12px; line-height:1.6; text-align:left;}
 </style>
 </head>
 <body>
@@ -1651,7 +1653,10 @@ async function claudeReply(owner, userText){
     headers:{"x-api-key":getKey("claude"),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true","content-type":"application/json"},
     body:JSON.stringify({model:CLAUDE_MODEL, max_tokens:300, system:aiSystem(owner), messages:[...hist,{role:"user",content:userText}]})
   });
-  if(!res.ok) throw new Error("Claude "+res.status);
+  if(!res.ok){
+    let detail=""; try{ const j=await res.json(); detail=j?.error?.message||""; }catch(_){}
+    throw new Error("Claude "+res.status+(detail?" — "+detail.slice(0,140):""));
+  }
   const data=await res.json();
   const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
   return parseMood(text);
@@ -1674,7 +1679,12 @@ async function geminiReply(owner, userText){
       };
       const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
         {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
-      if(!res.ok){ lastErr=new Error("Gemini "+res.status); if(res.status===404||res.status===400) continue; throw lastErr; }
+      if(!res.ok){
+        let detail=""; try{ const j=await res.json(); detail=j?.error?.message||""; }catch(_){}
+        lastErr=new Error("Gemini "+res.status+(detail?" — "+detail.slice(0,140):""));
+        if(res.status===404||res.status===400) continue;   // 換下一個模型再試
+        throw lastErr;
+      }
       const data=await res.json();
       const text=(data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("").trim();
       if(!text){ lastErr=new Error("Gemini 空回覆"); continue; }
@@ -1685,6 +1695,20 @@ async function geminiReply(owner, userText){
 }
 async function aiReply(owner, userText){
   return getProvider()==="gemini" ? geminiReply(owner,userText) : claudeReply(owner,userText);
+}
+// 把錯誤碼翻成看得懂的中文,讓你知道到底是額度沒了還是別的問題
+function explainAIError(raw){
+  const m=String(raw||""), code=(m.match(/\b(4\d\d|5\d\d)\b/)||[])[1];
+  const detail=(m.split("—")[1]||"").trim();
+  const tail=detail?`<br><span style="opacity:.75">原始訊息:${detail}</span>`:"";
+  if(code==="429") return `⚠️ <b>額度或速度超過了</b>(錯誤 429)。免費版限制是<b>每分鐘 15 次、每天 1,500 次</b>。<br>如果是連續快速發訊息 → 等一分鐘再試;如果整天都這樣 → 今天的額度用完了,明天會重置。${tail}`;
+  if(code==="400"||code==="401"||code==="403")
+    return `⚠️ <b>金鑰有問題</b>(錯誤 ${code}),不是額度用完。常見原因:金鑰貼錯或貼不完整、前後多了空白、或金鑰已被刪除。<br>請到 ⚙️ AI 重新貼一次完整的金鑰。${tail}`;
+  if(code==="404") return `⚠️ <b>找不到模型</b>(錯誤 404),可能是模型名稱已變更。請告訴我這個訊息。${tail}`;
+  if(code&&code[0]==="5") return `⚠️ <b>對方伺服器忙碌</b>(錯誤 ${code}),不是你的問題,等幾秒再試一次就好。${tail}`;
+  if(/Failed to fetch|NetworkError|load failed/i.test(m))
+    return `⚠️ <b>連不上網路</b>。檢查一下網路連線,或是防火牆/廣告阻擋擋住了請求。`;
+  return `⚠️ AI 連線失敗:${m}`;
 }
 
 // ---- 聊天 UI ----
@@ -1728,10 +1752,15 @@ async function sendChat(){
   owner.chat.push({role:"user",text}); appendChat("you",text);
   chatBusy=true;
   const typing=appendChat("owner","(思考中…)",true);
-  let reply;
+  let reply, errNote=null;
   try{ reply = aiActive()? await aiReply(owner,text) : offlineReply(owner,text); }
-  catch(e){ toast("AI 連線失敗("+(e.message||"")+"),改用離線模式"); reply=offlineReply(owner,text); }
+  catch(e){ errNote=explainAIError(e.message); reply=offlineReply(owner,text); }
   typing.remove();
+  if(errNote){
+    const n=appendChat("note","");
+    n.innerHTML=errNote+`<br><span style="opacity:.75">(這句先用離線模式回你)</span>`;
+    $("chatLog").scrollTop=$("chatLog").scrollHeight;
+  }
   owner.chat.push({role:"assistant",text:reply.text}); appendChat("owner",reply.text);
   owner.mood=clamp((owner.mood??50)+reply.mood, 0, 100);
   updateOwnerMood(); renderOwnerStock(); save();
